@@ -24,6 +24,7 @@
             ['label' => 'Stok Barang'], ['label' => 'Kartu Stok'], ['label' => 'Stok Opname'],
         ],
         'Akuntansi' => [
+            ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal'],
             ['label' => 'Jurnal'], ['label' => 'Buku Besar'], ['label' => 'Periode Akuntansi'],
         ],
         'Aset' => [

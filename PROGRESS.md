@@ -1,6 +1,6 @@
 # Progress implementasi
 
-Status: **TAHAP03 SELESAI** (28 Sep 2026) — modul MasterData (unit/akun/pihak/produk: CRUD + nonaktif + policy) dan OpeningBalance (impor Excel/CSV preview + error per baris + commit atomik + proteksi impor ulang + rincian + rekonsiliasi + lock) berjalan & teruji di MariaDB. Tahap00–03 selesai; berikutnya tahap04 (mesin posting/reverse/audit/period guard). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
+Status: **TAHAP04 SELESAI** (28 Sep 2026) — mesin akuntansi: Decimal helper (brick/math), JournalPlan/JournalValidator, PostingService (1 DB transaction, lock urut, idempotency request_key/hash, optimistic version, PeriodGuard), ReverseTransaction (baris tertukar + reversed original tetap dihitung pada tanggalnya), AuditWriter, LedgerQuery — semua teruji di MariaDB via jalur jurnal penyesuaian. Tahap00–04 selesai; berikutnya tahap05 (dagang/kas/stok/pelunasan/bukti). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
 
 ## Environment aktual
 
@@ -23,7 +23,7 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - [x]01 Scaffold, auth, policy, shell Blade/Livewire
 - [x]02 Migration18 inti+4 pendukung, model, seed
 - [x]03 Master, opening/import/rincian/lock
-- [ ]04 Posting, reverse, audit, period guard
+- [x]04 Posting, reverse, audit, period guard
 - [ ]05 Dagang, kas, stok, pelunasan, bukti
 - [ ]06 Pinjaman, jadwal, angsuran parsial
 - [ ]07 Opname, approval, aset, penyusutan
@@ -60,13 +60,20 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - **MasterData** (unit/akun/pihak/produk): komponen Livewire index (search `#[Url]` + pagination) + modal form (Form object) + nonaktif (bukan hapus). Mutasi lewat Domain Action (`SaveUnit/SaveAccount/SaveParty/SaveProduct`) dengan `authorize('perform-admin-mutation')` — **Pimpinan baca saja** (403 saat mutasi). Guard: akun terpakai tak boleh ubah kode/system_key/jenis/saldo_normal; unit produk terkunci setelah ada mutasi; **stok_terkini/HPP rata tidak diedit dari form** (cache).
 - **OpeningBalance**: `OpeningImportParser` (xlsx/csv via PhpSpreadsheet) → `PreviewImport` (validasi per baris + total D/K + status seimbang, pakai bcmath) → `CommitImport` (atomik; **proteksi impor ulang**: ganti isi jika belum lock, tolak jika terkunci) → `OpeningReconciliation` (seimbang + rincian==akun kontrol) → `LockOpeningBalance` (tolak "lock mismatch"; sukses set `opening_locked_at/by` + `locked_at/by` per baris + log). UI: pilih/buat periode cutover, upload+preview (tabel error per baris), commit, panel rekonsiliasi, tambah rincian akun kontrol, tombol kunci. Route + sidebar Data Master diaktifkan.
 
-**Next task konkret (tahap04 — dokumen 06/08/09):**
-1. Mesin posting: `JournalPlan`, `JournalValidator`, `PostingService` (satu DB transaction + lock urut periode→sumber→produk→…, idempotency `request_key`/`request_hash`, optimistic `version`, debit=kredit 2 desimal, total>0).
-2. `ReverseTransaction` (alasan wajib, tanggal pembalik periode terbuka, salin baris jurnal debit/kredit tertukar, `reversal_of_id`, subledger dibalik; original reversed tetap dihitung pada tanggalnya).
-3. `PeriodGuard` (post hanya periode terbuka + opening terkunci), `AuditWriter`, Decimal helper (brick/math).
-4. Tes domain: post ganda, request-hash mismatch (409), rollback sebelum mutasi, reverse lintas periode, period-close race; tes Livewire otorisasi/state tampering.
+**TAHAP04 SELESAI (28 Sep 2026).** Yang dibangun & terverifikasi (di `app/Domain/Accounting` & `Shared`):
+- `Decimal` (brick/math, HALF_UP, skala uang 2 / qty 4 / HPP 6); `DomainException` berkode (STALE_VERSION, IDEMPOTENCY_CONFLICT, PERIOD_CLOSED, OPENING_NOT_LOCKED, UNBALANCED, REVERSE_DEPENDENCY, INVALID_STATE).
+- `JournalLine`/`JournalPlan` + `JournalValidator` (≥2 baris, tiap baris satu sisi, akun aktif, debit=kredit 2 desimal, total>0). `JournalPlanner` (kontrak) + `JournalPlanRegistry` (jenis→planner) + `ManualJournalPlanner` (penyesuaian). Modul tahap05+ mendaftarkan planner masing-masing.
+- `PostingService::post` — **satu DB transaction**, idempotency transition (`request_key`+`request_hash` di `log_aktivitas`: key+hash sama → replay; hash beda → 409 conflict), lock urut sumber→periode (`lockForUpdate`), `PeriodGuard` (terbuka + opening terkunci), optimistic `version`, plan **dihitung ulang** & divalidasi, tulis `transaksi_detail` kanonik, `posted_at/by`+`version++`, `periode.revision++`, audit log. Sudah-posted = no-op idempoten.
+- `ReverseTransaction::reverse` — alasan wajib, tanggal pembalik pada periode terbuka, baris jurnal **debit/kredit tertukar**, tautan `reversal_of_id`, original → `reversed` **tanpa** mengubah `posted_at` (tetap dihitung di ledger pada tanggalnya).
+- `AuditWriter` (log append-only), `LedgerQuery` (saldo akun dari `transaksi_detail` terposting, `posted_at IS NOT NULL`), `SaveManualJournal` (+ Livewire `Accounting\ManualJournal`: buat draft → post → reverse; policy admin) + route/sidebar.
 
-**Catatan:** tahap03 tidak commit ke git (menunggu aba-aba). Chart of accounts (`config/accounting.php` + seeder) masih **[TEKNIS] menunggu validasi pengelola** sebelum data nyata.
+**Next task konkret (tahap05 — dokumen 06/07/08):**
+1. Dagang: `SaveSaleDraft`/`SavePurchaseDraft` (tunai & kredit) + `TradingJournalBuilder` (planner: penjualan bersih, HPP, pajak) → daftar ke `JournalPlanRegistry`; moving average + `mutasi_stok` + snapshot HPP + stock lock + larangan backdate stok.
+2. Kas: pemasukan/pengeluaran + `AllocateSettlement` (alokasi pelunasan piutang/utang, dukung sebagian & opening invoice, tolak lebih bayar).
+3. Bukti privat (upload/verify), reverse dependency (pelunasan dulu), drilldown transaksi→jurnal & kartu stok. UI Blade/Livewire terkait.
+4. Tes: fixture dagang, insufficient stock serentak, overpayment, bukti & policy.
+
+**Catatan:** Chart of accounts (`config/accounting.php` + seeder) masih **[TEKNIS] menunggu validasi pengelola** sebelum data nyata. PeriodGuard memakai model cutover (opening periode-posting harus terkunci); relaksasi carry-forward multi-periode = tahap09.
 
 ## Catatan sesi
 
@@ -78,6 +85,8 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 | 2026-09-28 | 02 | 21 migration tabel bisnis + 1 migration FK-silang; 21 model Eloquent (cast enum/decimal/array, relasi, `UPDATED_AT=null` utk append-only); 17 enum backed; `config/accounting.php` (20 system_key + mapping kategori); `MasterDataSeeder` (2 unit + 20 akun) & `DemoSeeder` (tolak production); factory unit/periode/akun/pihak/produk/transaksi/detail. | `php artisan migrate` (22 tabel bisnis, generated column + 14 CHECK OK di MariaDB), `db:seed MasterDataSeeder` (units=2, akun=20, system_keys=20), `vendor/bin/pint` (passed), **`php artisan test` = 30 passed / 109 assertions** di `bumdes_munggu_test` (schema, 6 constraint, 3 seeder + tahap01). | Semua lulus. Migration/CHECK/unique/generated-column terverifikasi di MariaDB nyata; seeder idempotent & semua system_key aktif. Total 31 tabel = 22 bisnis + 9 framework. | Tahap03: MasterData UI + OpeningBalance import/rincian/lock |
 | 2026-09-28 | 02→03 | git init + baseline commit `ed53039` (tahap00–02). | — (operasi git; verifikasi `git log`/`git status` bersih) | Repo lokal `main` siap; `.env`/vendor/node_modules diabaikan. | Tahap03 |
 | 2026-09-28 | 03 | +phpoffice/phpspreadsheet. MasterData: 4 Form object + 4 Livewire (Units/Accounts/Parties/Products) + 4 view + 4 Domain Action + guard akun-terpakai/produk-unit. OpeningBalance: parser + PreviewImport + CommitImport + OpeningReconciliation + LockOpeningBalance + Livewire Index + view. Route + sidebar Data Master aktif. Rebuild Vite. DemoSeeder di dev (periode/pihak/produk). | `php artisan route:list` (23 route), `npm run build` (manifest OK), `vendor/bin/pint` (fixed 2), **`php artisan test` = 47 passed / 145 assertions** di `bumdes_munggu_test` (MasterData CRUD/policy/guard, OpeningBalance preview-error/commit-atomik/reimport/parser CSV, lock: seimbang/unbalanced/rincian-mismatch/relock) + tahap01–02. | Semua lulus. Pimpinan tertolak mutasi (403); impor invalid → error per baris tanpa commit; lock mismatch (unbalanced & rincian≠kontrol) ditolak; impor ulang setelah lock ditolak. | Tahap04: PostingService/Reverse/PeriodGuard/Audit |
+| 2026-09-28 | 03→git | Commit tahap03 `a37d2ac`. | — | Repo `main` bersih. | Tahap04 |
+| 2026-09-28 | 04 | +brick/math (direct). Domain Accounting: Decimal, DomainException berkode, JournalLine/JournalPlan, JournalValidator, JournalPlanner+Registry+ManualJournalPlanner, PeriodGuard, AuditWriter, PostingService, ReverseTransaction, LedgerQuery, SaveManualJournal. Livewire Accounting\ManualJournal + view + route + sidebar. Rebuild Vite. Tanpa migration baru. | `vendor/bin/pint` (passed), `php artisan route:list` (route jurnal OK), `npm run build` (manifest OK), **`php artisan test` = 62 passed / 181 assertions** di `bumdes_munggu_test` (PostingService: post/idempotent/hash-konflik/unbalanced-rollback/period-closed/opening-not-locked/version; Reverse: swap+link/lintas-periode ledger/alasan/double/draft; Livewire ManualJournal: admin post, pimpinan 403 save & post). | Semua lulus. Idempotency replay & konflik 409 terverifikasi; rollback saat unbalanced (0 log); reversed original tetap dihitung 30 Jun (100000) & neto 0 di 31 Jul; Pimpinan tertolak. | Tahap05: dagang/kas/stok/pelunasan/bukti |
 
 ## Keputusan operasional sebelum data nyata
 

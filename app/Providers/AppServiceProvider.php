@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Domain\Accounting\JournalPlanRegistry;
+use App\Domain\Accounting\Planners\ManualJournalPlanner;
+use App\Enums\TransaksiJenis;
 use App\Http\Middleware\EnsureUserActive;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
@@ -15,7 +18,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Registry planner jurnal. Modul lain mendaftarkan planner-nya (tahap05+).
+        $this->app->singleton(JournalPlanRegistry::class, function () {
+            $registry = new JournalPlanRegistry;
+            $registry->register(TransaksiJenis::Penyesuaian->value, new ManualJournalPlanner);
+
+            return $registry;
+        });
     }
 
     /**

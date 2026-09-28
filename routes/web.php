@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Accounting\ManualJournal;
 use App\Livewire\Dashboard\Index as Dashboard;
 use App\Livewire\MasterData\Accounts;
 use App\Livewire\MasterData\Parties;
@@ -24,4 +25,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Saldo awal (opening balance).
     Route::get('/saldo-awal', OpeningBalanceIndex::class)->name('opening-balance');
+
+    // Akuntansi: jurnal penyesuaian (post/reverse via PostingService).
+    Route::get('/jurnal-penyesuaian', ManualJournal::class)->name('accounting.manual-journal');
 });
