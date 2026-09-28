@@ -49,4 +49,19 @@ class DomainException extends RuntimeException
     {
         return new self('REVERSE_DEPENDENCY', $message);
     }
+
+    public static function insufficientStock(string $message): self
+    {
+        return new self('INSUFFICIENT_STOCK', $message);
+    }
+
+    public static function stockBackdate(string $message): self
+    {
+        return new self('STOCK_BACKDATE', $message);
+    }
+
+    public static function overpayment(string $message): self
+    {
+        return new self('OVERPAYMENT', $message);
+    }
 }

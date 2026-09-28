@@ -62,8 +62,9 @@ class PostingService
                 throw DomainException::invalidState('Transaksi reversed tidak dapat diposting.');
             }
 
-            // Hitung ulang plan dari data server, lalu validasi.
-            $plan = $this->registry->for($trx)->plan($trx);
+            // Hitung ulang plan dari data server (strategy mengunci produk/target sendiri).
+            $strategy = $this->registry->for($trx);
+            $plan = $strategy->plan($trx);
             $this->validator->validate($plan);
 
             // Tulis jurnal kanonik: hapus baris draft, insert baris plan.
@@ -81,8 +82,11 @@ class PostingService
                 ]);
             }
 
+            // Efek domain (stok/subledger/cache) dalam transaksi yang sama.
+            $strategy->applyEffects($trx);
+
             $trx->update([
-                'total' => $plan->total(),
+                'total' => $strategy->documentTotal($trx),
                 'status' => TransaksiStatus::Posted->value,
                 'posted_by' => $actor->id,
                 'posted_at' => now(),
