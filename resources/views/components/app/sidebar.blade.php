@@ -14,8 +14,11 @@
             ['label' => 'Pinjaman'], ['label' => 'Jadwal Angsuran'], ['label' => 'Pembayaran Angsuran'],
         ],
         'Data Master' => [
-            ['label' => 'Unit Usaha'], ['label' => 'Akun'], ['label' => 'Pihak'],
-            ['label' => 'Produk'], ['label' => 'Saldo Awal'],
+            ['label' => 'Unit Usaha', 'route' => 'master.units'],
+            ['label' => 'Akun', 'route' => 'master.accounts'],
+            ['label' => 'Pihak', 'route' => 'master.parties'],
+            ['label' => 'Produk', 'route' => 'master.products'],
+            ['label' => 'Saldo Awal', 'route' => 'opening-balance'],
         ],
         'Persediaan' => [
             ['label' => 'Stok Barang'], ['label' => 'Kartu Stok'], ['label' => 'Stok Opname'],

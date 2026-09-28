@@ -1,6 +1,6 @@
 # Progress implementasi
 
-Status: **TAHAP02 SELESAI** (28 Sep 2026) — 22 tabel bisnis (18 inti + 4 pendukung), model Eloquent + enum + cast + relasi, `MasterDataSeeder`/`DemoSeeder`, dan `config/accounting.php` berjalan & teruji di MariaDB. Tahap00–02 selesai; berikutnya tahap03 (master + opening/import/lock). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
+Status: **TAHAP03 SELESAI** (28 Sep 2026) — modul MasterData (unit/akun/pihak/produk: CRUD + nonaktif + policy) dan OpeningBalance (impor Excel/CSV preview + error per baris + commit atomik + proteksi impor ulang + rincian + rekonsiliasi + lock) berjalan & teruji di MariaDB. Tahap00–03 selesai; berikutnya tahap04 (mesin posting/reverse/audit/period guard). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
 
 ## Environment aktual
 
@@ -14,7 +14,7 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - Database: **MariaDB 10.4.32** (XAMPP) di 127.0.0.1:3306 — **engine resmi proyek** (ADR-23). Koneksi Laravel via driver `mariadb`, `'strict' => true` (sql_mode global XAMPP longgar), charset/collation `utf8mb4`/`utf8mb4_unicode_ci`. `php artisan db:show` mengonfirmasi koneksi.
 - Aplikasi ter-scaffold di `bumdes-munggu/` (terpisah dari paket dokumen `bumdes-munggu-copilot/`). Versi terkunci (composer.lock): Laravel framework **v12.69.2**, Livewire **v3.8.9**, Fortify **v1.40.0**, PHPUnit **11.5.56** (dev), Pint **v1.30.4** (dev), brick/math 0.14.8 (transitif). `config.platform.php=8.2.12`; `composer check-platform-reqs` **lulus**.
 - Frontend: Tailwind **4** + Vite **7.3.6** (bawaan skeleton Laravel 12); Alpine bawaan Livewire (tidak ada Alpine kedua / framework FE lain). `resources/js/app.js` hanya helper, tanpa `Alpine.start()`.
-- Repository / branch / commit: belum dibuat (tidak ada `.git`) — inisialisasi git disarankan di awal tahap02
+- Repository / branch: **git diinisialisasi** di `bumdes-munggu/` (branch `main`), baseline tahap00–02 = commit `ed53039` (belum ada remote). +phpoffice/phpspreadsheet ^5.10 (tahap03, impor Excel).
 - Database `bumdes_munggu`: collation kini `utf8mb4_unicode_ci`; berisi **10 tabel framework** (users, sessions, cache, cache_locks, jobs, job_batches, failed_jobs, password_reset_tokens, passkeys, migrations) setelah `php artisan migrate`. `bumdes_munggu_test` dibuat untuk tes; user aplikasi `bumdes_app`@localhost. **Belum ada 18+4 tabel bisnis** (tahap02).
 
 ## Tahapan
@@ -22,7 +22,7 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - [x]00 Scope/ADR dan environment
 - [x]01 Scaffold, auth, policy, shell Blade/Livewire
 - [x]02 Migration18 inti+4 pendukung, model, seed
-- [ ]03 Master, opening/import/rincian/lock
+- [x]03 Master, opening/import/rincian/lock
 - [ ]04 Posting, reverse, audit, period guard
 - [ ]05 Dagang, kas, stok, pelunasan, bukti
 - [ ]06 Pinjaman, jadwal, angsuran parsial
@@ -56,12 +56,17 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 
 **Jumlah tabel (dokumentasi wajib):** total 31 di `bumdes_munggu` = **22 tabel bisnis** (users + 21 baru) + **9 tabel framework/infra** (migrations, password_reset_tokens, sessions, cache, cache_locks, jobs, job_batches, failed_jobs, passkeys). `passkeys`/`two_factor_*` bawaan Fortify tetap tak terpakai (fitur off).
 
-**Next task konkret (tahap03 — dokumen 01/05/06/07/08):**
-1. MasterData UI (unit/akun/pihak/produk): form/index/detail/nonaktifkan (bukan hapus), larang edit stok langsung.
-2. OpeningBalance: import Excel dengan preview + error per baris + batch commit atomik + proteksi import ulang; rincian stok/piutang/utang/pinjaman/aset (`saldo_awal_rincian`) + lock opening; saldo awal seimbang & rincian == akun kontrol.
-3. Uji invalid import & lock mismatch di MariaDB test.
+**TAHAP03 SELESAI (28 Sep 2026).** Yang dibangun & terverifikasi:
+- **MasterData** (unit/akun/pihak/produk): komponen Livewire index (search `#[Url]` + pagination) + modal form (Form object) + nonaktif (bukan hapus). Mutasi lewat Domain Action (`SaveUnit/SaveAccount/SaveParty/SaveProduct`) dengan `authorize('perform-admin-mutation')` — **Pimpinan baca saja** (403 saat mutasi). Guard: akun terpakai tak boleh ubah kode/system_key/jenis/saldo_normal; unit produk terkunci setelah ada mutasi; **stok_terkini/HPP rata tidak diedit dari form** (cache).
+- **OpeningBalance**: `OpeningImportParser` (xlsx/csv via PhpSpreadsheet) → `PreviewImport` (validasi per baris + total D/K + status seimbang, pakai bcmath) → `CommitImport` (atomik; **proteksi impor ulang**: ganti isi jika belum lock, tolak jika terkunci) → `OpeningReconciliation` (seimbang + rincian==akun kontrol) → `LockOpeningBalance` (tolak "lock mismatch"; sukses set `opening_locked_at/by` + `locked_at/by` per baris + log). UI: pilih/buat periode cutover, upload+preview (tabel error per baris), commit, panel rekonsiliasi, tambah rincian akun kontrol, tombol kunci. Route + sidebar Data Master diaktifkan.
 
-**Catatan:** git masih belum diinisialisasi (opsional; disarankan sebelum lanjut).
+**Next task konkret (tahap04 — dokumen 06/08/09):**
+1. Mesin posting: `JournalPlan`, `JournalValidator`, `PostingService` (satu DB transaction + lock urut periode→sumber→produk→…, idempotency `request_key`/`request_hash`, optimistic `version`, debit=kredit 2 desimal, total>0).
+2. `ReverseTransaction` (alasan wajib, tanggal pembalik periode terbuka, salin baris jurnal debit/kredit tertukar, `reversal_of_id`, subledger dibalik; original reversed tetap dihitung pada tanggalnya).
+3. `PeriodGuard` (post hanya periode terbuka + opening terkunci), `AuditWriter`, Decimal helper (brick/math).
+4. Tes domain: post ganda, request-hash mismatch (409), rollback sebelum mutasi, reverse lintas periode, period-close race; tes Livewire otorisasi/state tampering.
+
+**Catatan:** tahap03 tidak commit ke git (menunggu aba-aba). Chart of accounts (`config/accounting.php` + seeder) masih **[TEKNIS] menunggu validasi pengelola** sebelum data nyata.
 
 ## Catatan sesi
 
@@ -71,6 +76,8 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 | 2026-09-28 | 00→01 | Keputusan engine (b): target = MariaDB 10.4.32. Selaraskan seluruh dokumen (copilot-instructions, dokumen02/03/04/11/12/13/14/15, README) dari MySQL 8.4 → MariaDB; tambah ADR-23 + subseksi kompatibilitas MariaDB 10.4 di dokumen03; set `DB_CONNECTION=mariadb`. Tidak ada kode/migrasi dijalankan; tidak ada DB dihapus. | Verifikasi DB read-only: `SELECT VERSION()` = 10.4.32-MariaDB; `SHOW DATABASES`/`information_schema` (bumdes_munggu ada & kosong). Tidak ada tes aplikasi (belum ada kode). | Koneksi MariaDB OK; `bumdes_munggu` kosong; `bumdes_munggu_test` belum ada. Tidak ada error. | Tahap01: scaffold Laravel 12 + auth (lihat langkah di bawah); lalu buat `bumdes_munggu_test` + `ALTER DATABASE` collation saat tahap DB |
 | 2026-09-28 | 01 | Scaffold Laravel 12.69.2 terpin (platform.php 8.2.12); +Livewire 3.8.9, Fortify 1.40.0. `.env` MariaDB. users.nama+role+status (enum), EnsureUserActive (alias+persistent), Gate admin, CLI app:create-user (password tersembunyi), Fortify login-only (registrasi off, tolak nonaktif), layout app/guest + sidebar/header/breadcrumb, komponen ui (button/input/card/badge/table/modal), dashboard kosong jujur, Tailwind4/Vite build. DB user `bumdes_app` + `bumdes_munggu_test` dibuat; collation `bumdes_munggu` diselaraskan. Salin docs/copilot-instructions/PROGRESS ke root aplikasi. | `composer check-platform-reqs` (lulus), `php artisan migrate` (10 tabel), `php artisan db:show` (mariadb 10.4.32), `npm install` + `npm run build` (Vite 7.3.6, manifest OK), `php artisan view:cache` (OK), `vendor/bin/pint` (1 fix), **`php artisan test` = 19 passed / 52 assertions** di MariaDB (`bumdes_munggu_test`). | Semua lulus. Login/logout, tolak user nonaktif (saat login & mid-session), larangan mutation Pimpinan (403), CLI, dashboard render — terverifikasi. Sisa: kolom `two_factor_*`+tabel `passkeys` bawaan Fortify tak terpakai; git belum diinisialisasi. | Tahap02: 18 inti + 4 pendukung migration/model/seed di MariaDB test |
 | 2026-09-28 | 02 | 21 migration tabel bisnis + 1 migration FK-silang; 21 model Eloquent (cast enum/decimal/array, relasi, `UPDATED_AT=null` utk append-only); 17 enum backed; `config/accounting.php` (20 system_key + mapping kategori); `MasterDataSeeder` (2 unit + 20 akun) & `DemoSeeder` (tolak production); factory unit/periode/akun/pihak/produk/transaksi/detail. | `php artisan migrate` (22 tabel bisnis, generated column + 14 CHECK OK di MariaDB), `db:seed MasterDataSeeder` (units=2, akun=20, system_keys=20), `vendor/bin/pint` (passed), **`php artisan test` = 30 passed / 109 assertions** di `bumdes_munggu_test` (schema, 6 constraint, 3 seeder + tahap01). | Semua lulus. Migration/CHECK/unique/generated-column terverifikasi di MariaDB nyata; seeder idempotent & semua system_key aktif. Total 31 tabel = 22 bisnis + 9 framework. | Tahap03: MasterData UI + OpeningBalance import/rincian/lock |
+| 2026-09-28 | 02→03 | git init + baseline commit `ed53039` (tahap00–02). | — (operasi git; verifikasi `git log`/`git status` bersih) | Repo lokal `main` siap; `.env`/vendor/node_modules diabaikan. | Tahap03 |
+| 2026-09-28 | 03 | +phpoffice/phpspreadsheet. MasterData: 4 Form object + 4 Livewire (Units/Accounts/Parties/Products) + 4 view + 4 Domain Action + guard akun-terpakai/produk-unit. OpeningBalance: parser + PreviewImport + CommitImport + OpeningReconciliation + LockOpeningBalance + Livewire Index + view. Route + sidebar Data Master aktif. Rebuild Vite. DemoSeeder di dev (periode/pihak/produk). | `php artisan route:list` (23 route), `npm run build` (manifest OK), `vendor/bin/pint` (fixed 2), **`php artisan test` = 47 passed / 145 assertions** di `bumdes_munggu_test` (MasterData CRUD/policy/guard, OpeningBalance preview-error/commit-atomik/reimport/parser CSV, lock: seimbang/unbalanced/rincian-mismatch/relock) + tahap01–02. | Semua lulus. Pimpinan tertolak mutasi (403); impor invalid → error per baris tanpa commit; lock mismatch (unbalanced & rincian≠kontrol) ditolak; impor ulang setelah lock ditolak. | Tahap04: PostingService/Reverse/PeriodGuard/Audit |
 
 ## Keputusan operasional sebelum data nyata
 
