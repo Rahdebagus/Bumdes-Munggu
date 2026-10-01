@@ -1,6 +1,6 @@
 # Progress implementasi
 
-Status: **TAHAP04 SELESAI; TAHAP05 BERJALAN (Bagian 1/2 selesai)** (28 Sep 2026). Tahap05 Bagian 1 = domain **dagang + persediaan/HPP**: moving-average, `mutasi_stok`, PostingStrategy (Sale/Purchase) terintegrasi PostingService (jurnal + stok + snapshot HPP atomik), larangan backdate & stok negatif — teruji di MariaDB. **Sisa tahap05 (Bagian 2):** kas (pemasukan/pengeluaran), pelunasan (AllocateSettlement, tolak lebih bayar), bukti privat, UI Blade/Livewire dagang + drilldown. PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
+Status: **TAHAP04 SELESAI; TAHAP05 BERJALAN — domain inti selesai** (28 Sep 2026). Tahap05 sejauh ini (teruji di MariaDB): **dagang + persediaan/HPP** (moving-average, `mutasi_stok`, Sale/Purchase strategy, larangan backdate & stok negatif) DAN **kas + pelunasan** (CashPostingStrategy pemasukan/pengeluaran per kategori, `SaveCashDraft`, `SettlementQuery` outstanding, pelunasan piutang/utang via alokasi tanpa pendapatan ganda, **tolak lebih bayar**). **Sisa tahap05:** bukti transaksi privat (upload/verify), reverse untuk transaksi dagang (membalik mutasi stok), UI Blade/Livewire (dagang/kas/stok + drilldown). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
 
 ## Environment aktual
 
@@ -73,13 +73,17 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - Trading: `SalePostingStrategy` (Dr kas/piutang; Cr penjualan+pajak; Dr HPP; Cr persediaan — nilai keluar aktual; tolak stok kurang) & `PurchasePostingStrategy` (Dr persediaan; Cr kas/utang; stok masuk) + `SystemAccounts` (resolusi akun by system_key) + `SaveTradingDraft`. Terdaftar di `JournalPlanRegistry` (penjualan/pembelian).
 - Terverifikasi (dokumen08 §4): beli 10@10rb lalu 10@14rb → rata 12.000; jual 5 → HPP 60.000, saldo 15; penjualan kredit pakai piutang; stok kurang & backdate ditolak + rollback.
 
-**Sisa tahap05 (Bagian 2 — dokumen 06/07/08):**
-1. Kas: `SaveCashDraft` (pemasukan/pengeluaran) + `CashPostingStrategy` (kas ↔ akun lawan per `kategori_kode`), hindari pencatatan pendapatan ganda pada pelunasan.
-2. `AllocateSettlement` (alokasi_pelunasan): pelunasan piutang/utang ke invoice atau opening item, cocok pihak/unit, dukung sebagian, **tolak lebih bayar (OVERPAYMENT)**.
-3. Bukti privat (upload MIME/size, verify), reverse dependency (pelunasan dulu), drilldown transaksi→jurnal & kartu stok.
-4. UI Blade/Livewire: Sales/Purchases (index/create/detail), Cash, Stock/StockCards. Tes: overpayment, bukti, policy, reverse dependency.
+**TAHAP05 KAS + PELUNASAN SELESAI (28 Sep 2026):**
+- `SaveCashDraft` (pemasukan/pengeluaran per `kategori_kode`; untuk pelunasan menulis `alokasi_pelunasan`), `CashPostingStrategy` (Dr Kas/Cr lawan atau sebaliknya; pelunasan hanya kurangi piutang/utang tanpa pendapatan ganda), `SettlementQuery` (outstanding invoice/opening dari alokasi terposting), terdaftar registry (pemasukan/pengeluaran).
+- Terverifikasi: pemasukan jasa (Dr kas/Cr penjualan), pengeluaran beban (Dr beban/Cr kas), pelunasan piutang mengurangi piutang tanpa pendapatan baru (outstanding 100rb→0), **lebih bayar ditolak (OVERPAYMENT)** + rollback.
+- **Perbaikan mesin:** `documentTotal` dihitung sebelum `applyEffects` (mencegah recompute atas stok yang sudah berubah pada penjualan yang menghabiskan stok).
 
-**Catatan:** Chart of accounts (`config/accounting.php` + seeder) masih **[TEKNIS] menunggu validasi pengelola** sebelum data nyata. PeriodGuard memakai model cutover; relaksasi carry-forward multi-periode = tahap09. Reverse untuk transaksi dagang (membalik mutasi stok) belum diimplementasikan — masuk Bagian 2/tahap berikut.
+**Sisa tahap05 (belum dikerjakan):**
+1. Bukti transaksi privat: upload (MIME/size, disk private), verify/reject, download via Controller+policy.
+2. Reverse transaksi dagang/kas: membalik `mutasi_stok` & `alokasi_pelunasan` (dependency: pelunasan dulu) — `ReverseTransaction` saat ini baru menangani jurnal + subledger sederhana.
+3. UI Blade/Livewire: Sales/Purchases (index/create/detail + drilldown ke jurnal & kartu stok), Cash (pemasukan/pengeluaran/pelunasan), Stock/StockCards. Tes UI + policy.
+
+**Catatan:** Chart of accounts (`config/accounting.php` + seeder) masih **[TEKNIS] menunggu validasi pengelola** sebelum data nyata. PeriodGuard memakai model cutover; relaksasi carry-forward multi-periode = tahap09.
 
 ## Catatan sesi
 
@@ -94,7 +98,9 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 | 2026-09-28 | 03→git | Commit tahap03 `a37d2ac`. | — | Repo `main` bersih. | Tahap04 |
 | 2026-09-28 | 04 | +brick/math (direct). Domain Accounting: Decimal, DomainException berkode, JournalLine/JournalPlan, JournalValidator, JournalPlanner+Registry+ManualJournalPlanner, PeriodGuard, AuditWriter, PostingService, ReverseTransaction, LedgerQuery, SaveManualJournal. Livewire Accounting\ManualJournal + view + route + sidebar. Rebuild Vite. Tanpa migration baru. | `vendor/bin/pint` (passed), `php artisan route:list` (route jurnal OK), `npm run build` (manifest OK), **`php artisan test` = 62 passed / 181 assertions** di `bumdes_munggu_test` (PostingService: post/idempotent/hash-konflik/unbalanced-rollback/period-closed/opening-not-locked/version; Reverse: swap+link/lintas-periode ledger/alasan/double/draft; Livewire ManualJournal: admin post, pimpinan 403 save & post). | Semua lulus. Idempotency replay & konflik 409 terverifikasi; rollback saat unbalanced (0 log); reversed original tetap dihitung 30 Jun (100000) & neto 0 di 31 Jul; Pimpinan tertolak. | Tahap04 commit `d2a06d5`; lalu Tahap05 |
 | 2026-09-28 | 04→git | Commit tahap04 `d2a06d5`. | — | Repo `main` bersih. | Tahap05 |
-| 2026-09-28 | 05 (Bag.1) | Refactor PostingStrategy (plan+documentTotal+applyEffects); PostingService pakai applyEffects+documentTotal. Inventory: MovingAverageCost, StockLedger. Trading: SystemAccounts, SalePostingStrategy, PurchasePostingStrategy, SaveTradingDraft; daftar strategy penjualan/pembelian ke registry. Tanpa migration baru. | `vendor/bin/pint` (fixed 2 import), **`php artisan test` = 67 passed / 201 assertions** di `bumdes_munggu_test` (Trading: purchase+moving-average, sale+HPP, kredit→piutang, insufficient-stock rollback, backdate rollback; + tahap01–04). | Semua lulus. Rata-rata 12.000 & HPP 60.000 cocok dokumen08; jurnal seimbang (kas/penjualan + HPP/persediaan); stok negatif & backdate ditolak + rollback. **Sisa tahap05:** kas, pelunasan (overpayment), bukti, UI dagang, reverse dagang. | Tahap05 Bagian 2 |
+| 2026-09-28 | 05 (Bag.1) | Refactor PostingStrategy (plan+documentTotal+applyEffects); PostingService pakai applyEffects+documentTotal. Inventory: MovingAverageCost, StockLedger. Trading: SystemAccounts, SalePostingStrategy, PurchasePostingStrategy, SaveTradingDraft; daftar strategy penjualan/pembelian ke registry. Tanpa migration baru. | `vendor/bin/pint` (fixed 2 import), **`php artisan test` = 67 passed / 201 assertions** di `bumdes_munggu_test` (Trading: purchase+moving-average, sale+HPP, kredit→piutang, insufficient-stock rollback, backdate rollback; + tahap01–04). | Semua lulus. Rata-rata 12.000 & HPP 60.000 cocok dokumen08; jurnal seimbang (kas/penjualan + HPP/persediaan); stok negatif & backdate ditolak + rollback. **Sisa tahap05:** kas, pelunasan (overpayment), bukti, UI dagang, reverse dagang. | Tahap05 bag.1 commit `311ad7a`; lalu kas/pelunasan |
+| 2026-09-28 | 05→git | Commit tahap05 bagian 1 `311ad7a`. | — | Repo `main` bersih. | Kas + pelunasan |
+| 2026-09-28 | 05 (kas) | Cash: SaveCashDraft, CashPostingStrategy (pemasukan/pengeluaran per kategori + pelunasan piutang/utang), SettlementQuery; daftar strategy pemasukan/pengeluaran. Perbaikan PostingService: documentTotal sebelum applyEffects. Tanpa migration baru. | `vendor/bin/pint` (fixed 1 import), **`php artisan test` = 71 passed / 214 assertions** di `bumdes_munggu_test` (Cash: pemasukan jasa, pengeluaran beban, pelunasan tanpa pendapatan ganda, overpayment ditolak; + semua tahap sebelumnya). | Semua lulus. Pelunasan mengurangi piutang (outstanding 100rb→0) tanpa pendapatan baru; lebih bayar ditolak + rollback; bug recompute penjualan-habis-stok diperbaiki. **Sisa tahap05:** bukti privat, reverse dagang, UI. | Tahap05: bukti + reverse dagang + UI |
 
 ## Keputusan operasional sebelum data nyata
 

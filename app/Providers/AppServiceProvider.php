@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Accounting\JournalPlanRegistry;
 use App\Domain\Accounting\Planners\ManualJournalPlanner;
+use App\Domain\Cash\CashPostingStrategy;
 use App\Domain\Trading\PurchasePostingStrategy;
 use App\Domain\Trading\SalePostingStrategy;
 use App\Enums\TransaksiJenis;
@@ -26,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(TransaksiJenis::Penyesuaian->value, new ManualJournalPlanner);
             $registry->register(TransaksiJenis::Penjualan->value, $app->make(SalePostingStrategy::class));
             $registry->register(TransaksiJenis::Pembelian->value, $app->make(PurchasePostingStrategy::class));
+            $registry->register(TransaksiJenis::Pemasukan->value, $app->make(CashPostingStrategy::class));
+            $registry->register(TransaksiJenis::Pengeluaran->value, $app->make(CashPostingStrategy::class));
 
             return $registry;
         });

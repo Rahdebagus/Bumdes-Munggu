@@ -82,11 +82,15 @@ class PostingService
                 ]);
             }
 
+            // Total dokumen dihitung SEBELUM efek stok (agar konsisten dengan
+            // plan; applyEffects dapat mengubah state stok yang dipakai compute).
+            $documentTotal = $strategy->documentTotal($trx);
+
             // Efek domain (stok/subledger/cache) dalam transaksi yang sama.
             $strategy->applyEffects($trx);
 
             $trx->update([
-                'total' => $strategy->documentTotal($trx),
+                'total' => $documentTotal,
                 'status' => TransaksiStatus::Posted->value,
                 'posted_by' => $actor->id,
                 'posted_at' => now(),
