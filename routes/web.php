@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\EvidenceDownloadController;
 use App\Livewire\Accounting\ManualJournal;
 use App\Livewire\Accounting\Transactions\Index as TransactionsIndex;
 use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
@@ -47,4 +48,7 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Persediaan + kartu stok.
     Route::get('/persediaan', StockIndex::class)->name('inventory.stock');
+
+    // Unduh bukti transaksi (disk private, attachment).
+    Route::get('/bukti/{bukti}/download', EvidenceDownloadController::class)->name('evidence.download');
 });

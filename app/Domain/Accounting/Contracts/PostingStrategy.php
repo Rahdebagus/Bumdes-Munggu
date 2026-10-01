@@ -14,6 +14,9 @@ use App\Models\Transaksi;
  *   dari jumlah debit jurnal yang bisa memuat HPP.
  * - applyEffects(): efek domain (mutasi_stok, alokasi subledger, cache) —
  *   dijalankan setelah baris jurnal ditulis, dalam transaksi yang sama.
+ *
+ * Pembalikan efek stok ditangani generik oleh ReverseTransaction (mencerminkan
+ * baris mutasi_stok asli), sehingga tidak perlu hook per-strategy.
  */
 interface PostingStrategy extends JournalPlanner
 {

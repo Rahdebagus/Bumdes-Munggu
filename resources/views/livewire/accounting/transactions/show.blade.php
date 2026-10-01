@@ -83,6 +83,63 @@
         </x-ui.card>
     @endif
 
+    {{-- Bukti transaksi --}}
+    <x-ui.card title="Bukti Transaksi" subtitle="PDF/JPG/PNG maks 5 MiB, disk private">
+        @can('perform-admin-mutation')
+            <div class="mb-4 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3">
+                <input type="file" wire:model="buktiFile" accept=".pdf,.jpg,.jpeg,.png" class="text-sm">
+                <select wire:model="buktiJenis" class="rounded-lg border border-slate-300 px-2 py-2 text-sm">
+                    <option value="nota">Nota</option>
+                    <option value="kuitansi">Kuitansi</option>
+                    <option value="transfer">Transfer</option>
+                    <option value="kas_masuk">Kas Masuk</option>
+                    <option value="kas_keluar">Kas Keluar</option>
+                </select>
+                <x-ui.button variant="secondary" wire:click="uploadBukti" wire:loading.attr="disabled">Unggah</x-ui.button>
+                <span wire:loading wire:target="buktiFile" class="text-sm text-slate-400">Mengunggah…</span>
+            </div>
+            @error('buktiFile') <p class="mb-2 text-sm text-red-600">{{ $message }}</p> @enderror
+        @endcan
+
+        <x-ui.table :headers="['Nomor', 'Jenis', 'Nama File', 'Status', 'Diunggah', '']"
+                    :is-empty="$trx->bukti->isEmpty()" empty="Belum ada bukti.">
+            @foreach ($trx->bukti as $b)
+                <tr wire:key="bukti-{{ $b->id }}">
+                    <td class="px-4 py-2">{{ $b->nomor_bukti }}</td>
+                    <td class="px-4 py-2 capitalize">{{ $b->jenis_bukti }}</td>
+                    <td class="px-4 py-2">
+                        <a href="{{ route('evidence.download', $b) }}" class="text-emerald-700 hover:underline">{{ $b->original_name ?? 'unduh' }}</a>
+                    </td>
+                    <td class="px-4 py-2">
+                        <x-ui.badge :color="$b->status_verifikasi->value === 'valid' ? 'emerald' : ($b->status_verifikasi->value === 'ditolak' ? 'red' : 'slate')">
+                            {{ $b->status_verifikasi->value }}
+                        </x-ui.badge>
+                    </td>
+                    <td class="px-4 py-2 text-xs text-slate-500">{{ $b->uploadedBy?->nama }}</td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap">
+                        @can('verify-evidence', $b)
+                            @if ($b->status_verifikasi->value === 'belum_diperiksa')
+                                <button wire:click="verifyBukti({{ $b->id }})" class="text-sm font-medium text-emerald-700 hover:underline">Verifikasi</button>
+                                <button wire:click="$set('rejectingBuktiId', {{ $b->id }})" class="ml-2 text-sm text-red-600 hover:underline">Tolak</button>
+                            @endif
+                        @endcan
+                    </td>
+                </tr>
+            @endforeach
+        </x-ui.table>
+        @error('rejectReason') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+        @if ($rejectingBuktiId)
+            <div class="mt-3 flex items-end gap-2 rounded-lg bg-red-50 p-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-slate-600">Alasan penolakan bukti #{{ $rejectingBuktiId }}</label>
+                    <input wire:model="rejectReason" class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                </div>
+                <x-ui.button variant="danger" wire:click="rejectBukti">Tolak</x-ui.button>
+                <x-ui.button variant="ghost" wire:click="$set('rejectingBuktiId', null)">Batal</x-ui.button>
+            </div>
+        @endif
+    </x-ui.card>
+
     @if ($confirmingReverse)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
             <div class="absolute inset-0 bg-slate-900/50" wire:click="$set('confirmingReverse', false)"></div>

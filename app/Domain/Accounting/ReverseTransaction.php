@@ -2,10 +2,14 @@
 
 namespace App\Domain\Accounting;
 
+use App\Domain\Inventory\StockLedger;
 use App\Domain\Shared\DomainException;
 use App\Enums\TransaksiStatus;
+use App\Models\AlokasiPelunasan;
 use App\Models\LogAktivitas;
+use App\Models\MutasiStok;
 use App\Models\PeriodeAkuntansi;
+use App\Models\Produk;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
 use App\Models\User;
@@ -23,6 +27,7 @@ class ReverseTransaction
     public function __construct(
         private PeriodGuard $periodGuard,
         private AuditWriter $audit,
+        private StockLedger $stockLedger,
     ) {}
 
     public function reverse(Transaksi $original, string $reversalDate, string $reason, User $actor, string $requestKey, string $requestHash): Transaksi
@@ -49,6 +54,12 @@ class ReverseTransaction
             if (Transaksi::where('reversal_of_id', $orig->id)->exists()) {
                 throw DomainException::reverseDependency('Transaksi sudah memiliki pembalik.');
             }
+
+            // Dependensi: invoice kredit yang sudah ada pelunasan terposting
+            // harus dibalik pelunasannya lebih dulu (dokumen06 §Reverse).
+            $this->assertNoPostedSettlement($orig);
+            // Dependensi stok: mutasi transaksi ini harus yang terbaru per produk.
+            $this->assertStockMovementsAreLatest($orig);
 
             $periode = PeriodeAkuntansi::whereDate('tanggal_mulai', '<=', $reversalDate)
                 ->whereDate('tanggal_selesai', '>=', $reversalDate)
@@ -94,7 +105,11 @@ class ReverseTransaction
                 ]);
             }
 
-            // Original menjadi reversed; posted_at TIDAK diubah.
+            // Balik efek stok (mencerminkan mutasi_stok asli).
+            $this->reverseStock($reversal, $orig);
+
+            // Original menjadi reversed; posted_at TIDAK diubah. Alokasi pelunasan
+            // yang melekat pada original otomatis berhenti dihitung (status filter).
             $orig->update(['status' => TransaksiStatus::Reversed->value]);
 
             $periode->increment('revision');
@@ -103,5 +118,45 @@ class ReverseTransaction
 
             return $reversal;
         });
+    }
+
+    private function assertNoPostedSettlement(Transaksi $orig): void
+    {
+        $hasSettlement = AlokasiPelunasan::where('invoice_transaksi_id', $orig->id)
+            ->whereHas('pembayaranTransaksi', fn ($q) => $q->whereNotNull('posted_at')->where('status', 'posted'))
+            ->exists();
+
+        if ($hasSettlement) {
+            throw DomainException::reverseDependency('Balik pelunasan yang terkait transaksi ini terlebih dahulu.');
+        }
+    }
+
+    private function assertStockMovementsAreLatest(Transaksi $orig): void
+    {
+        $produkIds = MutasiStok::where('transaksi_id', $orig->id)->pluck('produk_id')->unique();
+
+        foreach ($produkIds as $pid) {
+            $last = MutasiStok::where('produk_id', $pid)->orderByDesc('urutan')->first();
+            if ($last && $last->transaksi_id !== $orig->id) {
+                throw DomainException::reverseDependency(
+                    'Ada mutasi stok lebih baru pada produk terkait; balik transaksi terbaru lebih dulu.'
+                );
+            }
+        }
+    }
+
+    private function reverseStock(Transaksi $reversal, Transaksi $orig): void
+    {
+        $mutasis = MutasiStok::where('transaksi_id', $orig->id)->orderBy('urutan')->get();
+        if ($mutasis->isEmpty()) {
+            return;
+        }
+
+        $produk = Produk::whereIn('id', $mutasis->pluck('produk_id')->unique())
+            ->lockForUpdate()->get()->keyBy('id');
+
+        foreach ($mutasis as $m) {
+            $this->stockLedger->reverseMovement($m, $produk[$m->produk_id], $reversal->id, $reversal->tanggal->toDateString());
+        }
     }
 }

@@ -9,6 +9,7 @@ use App\Domain\Trading\PurchasePostingStrategy;
 use App\Domain\Trading\SalePostingStrategy;
 use App\Enums\TransaksiJenis;
 use App\Http\Middleware\EnsureUserActive;
+use App\Models\BuktiTransaksi;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -42,6 +43,11 @@ class AppServiceProvider extends ServiceProvider
         // Kewenangan mutasi: hanya Admin yang boleh membuat/mengubah data.
         // Pimpinan bersifat baca + approval (matriks kewenangan dokumen01).
         Gate::define('perform-admin-mutation', fn (User $user) => $user->isAdmin());
+
+        // Verifikasi bukti: Pimpinan boleh; Admin boleh asalkan bukan pengunggah
+        // sendiri [TEKNIS] (matriks kewenangan dokumen01).
+        Gate::define('verify-evidence', fn (User $user, BuktiTransaksi $bukti) => $user->isPimpinan()
+            || ($user->isAdmin() && $bukti->uploaded_by !== $user->id));
 
         // Middleware status aktif dijaga persisten pada request update Livewire,
         // bukan hanya pada GET halaman awal.

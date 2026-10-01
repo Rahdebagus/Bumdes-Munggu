@@ -67,6 +67,8 @@ class CashPostingStrategy implements PostingStrategy
     {
         // Alokasi pelunasan sudah tertulis saat draft; menjadi efektif ketika
         // transaksi kas ini terposting (difilter posted_at pada outstanding).
+        // Saat dibalik, status original→reversed membuat SettlementQuery tidak
+        // lagi menghitung alokasinya sehingga outstanding pulih otomatis.
     }
 
     private function assertNoOverpayment(Transaksi $trx): void

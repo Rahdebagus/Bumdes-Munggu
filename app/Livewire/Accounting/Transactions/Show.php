@@ -4,25 +4,37 @@ namespace App\Livewire\Accounting\Transactions;
 
 use App\Domain\Accounting\PostingService;
 use App\Domain\Accounting\ReverseTransaction;
+use App\Domain\Evidence\UploadEvidence;
+use App\Domain\Evidence\VerifyEvidence;
 use App\Domain\Shared\DomainException;
-use App\Enums\TransaksiJenis;
 use App\Models\AlokasiPelunasan;
+use App\Models\BuktiTransaksi;
 use App\Models\MutasiStok;
 use App\Models\Transaksi;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 #[Layout('components.layouts.app')]
 class Show extends Component
 {
     use AuthorizesRequests;
+    use WithFileUploads;
 
     public Transaksi $transaksi;
 
     public bool $confirmingReverse = false;
 
     public string $reverseReason = '';
+
+    public $buktiFile;
+
+    public string $buktiJenis = 'nota';
+
+    public ?int $rejectingBuktiId = null;
+
+    public string $rejectReason = '';
 
     public function mount(Transaksi $transaksi): void
     {
@@ -73,17 +85,49 @@ class Show extends Component
         }
     }
 
+    public function uploadBukti(UploadEvidence $action): void
+    {
+        $this->authorize('perform-admin-mutation');
+        $this->validate([
+            'buktiFile' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'buktiJenis' => ['required', 'in:nota,kuitansi,transfer,kas_masuk,kas_keluar'],
+        ]);
+
+        $action->handle($this->transaksi, $this->buktiFile, auth()->user(), $this->buktiJenis);
+
+        $this->reset('buktiFile');
+        session()->flash('status', 'Bukti diunggah (menunggu verifikasi).');
+    }
+
+    public function verifyBukti(int $id, VerifyEvidence $action): void
+    {
+        $bukti = BuktiTransaksi::where('transaksi_id', $this->transaksi->id)->findOrFail($id);
+        $this->authorize('verify-evidence', $bukti);
+        $action->verify($bukti, auth()->user());
+        session()->flash('status', 'Bukti diverifikasi.');
+    }
+
+    public function rejectBukti(VerifyEvidence $action): void
+    {
+        $bukti = BuktiTransaksi::where('transaksi_id', $this->transaksi->id)->findOrFail($this->rejectingBuktiId);
+        $this->authorize('verify-evidence', $bukti);
+        $this->validate(['rejectReason' => ['required', 'string', 'min:3']]);
+        $action->reject($bukti, auth()->user(), $this->rejectReason);
+        $this->reset('rejectingBuktiId', 'rejectReason');
+        session()->flash('status', 'Bukti ditolak.');
+    }
+
     public function render()
     {
-        $trx = $this->transaksi->load(['periode', 'unitUsaha', 'pihak', 'details.akun', 'barang.produk']);
+        $trx = $this->transaksi->load(['periode', 'unitUsaha', 'pihak', 'details.akun', 'barang.produk', 'bukti.uploadedBy', 'bukti.verifiedBy']);
 
         return view('livewire.accounting.transactions.show', [
             'title' => $trx->nomor_transaksi,
             'trx' => $trx,
             'mutasi' => MutasiStok::with('produk')->where('transaksi_id', $trx->id)->orderBy('urutan')->get(),
-            // Reverse lewat halaman ini hanya untuk jurnal penyesuaian; reverse
-            // dagang/kas (membalik stok/alokasi) menyusul.
-            'canReverse' => $trx->jenis_transaksi === TransaksiJenis::Penyesuaian,
+            // Reverse mendukung semua jenis (jurnal, dagang, kas); dependensi
+            // (mutasi stok terbaru, pelunasan dulu) ditegakkan domain.
+            'canReverse' => true,
         ]);
     }
 }
