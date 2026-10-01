@@ -2,10 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Domain\OpeningBalance\LockOpeningBalance;
+use App\Models\Akun;
 use App\Models\PeriodeAkuntansi;
 use App\Models\Pihak;
 use App\Models\Produk;
+use App\Models\SaldoAwalAkun;
 use App\Models\UnitUsaha;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -27,7 +31,7 @@ class DemoSeeder extends Seeder
 
         $dagang = UnitUsaha::where('kode_unit', 'UNIT-DAGANG')->firstOrFail();
 
-        PeriodeAkuntansi::firstOrCreate(
+        $periode = PeriodeAkuntansi::firstOrCreate(
             ['tahun' => 2026, 'bulan' => 1],
             ['tanggal_mulai' => '2026-01-01', 'tanggal_selesai' => '2026-01-31', 'status' => 'terbuka', 'revision' => 0],
         );
@@ -51,5 +55,40 @@ class DemoSeeder extends Seeder
                 array_merge($b, ['unit_usaha_id' => $dagang->id, 'status' => 'aktif']),
             );
         }
+
+        $this->seedLockedOpening($periode);
+    }
+
+    /**
+     * Saldo awal cutover demo yang seimbang + terkunci (Kas vs Modal) agar periode
+     * siap untuk posting transaksi. Nilai sintetis demo, bukan saldo nyata.
+     */
+    private function seedLockedOpening(PeriodeAkuntansi $periode): void
+    {
+        if ($periode->opening_locked_at !== null) {
+            return; // sudah terkunci
+        }
+
+        $actor = User::where('role', 'admin')->first() ?? User::create([
+            'nama' => 'Admin Demo',
+            'email' => 'admin.demo@bumdes-munggu.test',
+            'role' => 'admin',
+            'status' => 'aktif',
+            'password' => bcrypt('demo12345'),
+        ]);
+
+        $kas = Akun::where('system_key', 'cash')->firstOrFail();
+        $modal = Akun::where('system_key', 'capital')->firstOrFail();
+
+        SaldoAwalAkun::firstOrCreate(
+            ['periode_id' => $periode->id, 'akun_id' => $kas->id, 'unit_usaha_id' => null],
+            ['saldo_debit' => 10_000_000, 'saldo_kredit' => 0, 'created_by' => $actor->id],
+        );
+        SaldoAwalAkun::firstOrCreate(
+            ['periode_id' => $periode->id, 'akun_id' => $modal->id, 'unit_usaha_id' => null],
+            ['saldo_debit' => 0, 'saldo_kredit' => 10_000_000, 'created_by' => $actor->id],
+        );
+
+        app(LockOpeningBalance::class)->handle($periode, $actor);
     }
 }

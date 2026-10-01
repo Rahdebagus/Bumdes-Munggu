@@ -1,12 +1,17 @@
 <?php
 
 use App\Livewire\Accounting\ManualJournal;
+use App\Livewire\Accounting\Transactions\Index as TransactionsIndex;
+use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
+use App\Livewire\Cash\Create as CashCreate;
 use App\Livewire\Dashboard\Index as Dashboard;
+use App\Livewire\Inventory\Stock as StockIndex;
 use App\Livewire\MasterData\Accounts;
 use App\Livewire\MasterData\Parties;
 use App\Livewire\MasterData\Products;
 use App\Livewire\MasterData\Units;
 use App\Livewire\OpeningBalance\Index as OpeningBalanceIndex;
+use App\Livewire\Trading\Create as TradingCreate;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,4 +33,18 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Akuntansi: jurnal penyesuaian (post/reverse via PostingService).
     Route::get('/jurnal-penyesuaian', ManualJournal::class)->name('accounting.manual-journal');
+
+    // Dagang (buat draft → detail → posting).
+    Route::get('/penjualan/baru', TradingCreate::class)->defaults('jenis', 'penjualan')->name('sales.create');
+    Route::get('/pembelian/baru', TradingCreate::class)->defaults('jenis', 'pembelian')->name('purchases.create');
+
+    // Kas (pemasukan/pengeluaran/pelunasan).
+    Route::get('/kas/baru', CashCreate::class)->name('cash.create');
+
+    // Daftar & detail transaksi (drilldown jurnal + kartu stok, post/reverse).
+    Route::get('/transaksi', TransactionsIndex::class)->name('transactions.index');
+    Route::get('/transaksi/{transaksi}', TransactionsShow::class)->name('transactions.show');
+
+    // Persediaan + kartu stok.
+    Route::get('/persediaan', StockIndex::class)->name('inventory.stock');
 });

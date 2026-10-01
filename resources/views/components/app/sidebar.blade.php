@@ -6,9 +6,10 @@
             ['label' => 'Ringkasan Usaha', 'route' => 'dashboard'],
         ],
         'Transaksi' => [
-            ['label' => 'Penjualan'], ['label' => 'Pembelian'],
-            ['label' => 'Pemasukan'], ['label' => 'Pengeluaran'],
-            ['label' => 'Daftar Transaksi'],
+            ['label' => 'Penjualan', 'route' => 'sales.create'],
+            ['label' => 'Pembelian', 'route' => 'purchases.create'],
+            ['label' => 'Kas (Pemasukan/Pengeluaran)', 'route' => 'cash.create'],
+            ['label' => 'Daftar Transaksi', 'route' => 'transactions.index'],
         ],
         'Usaha Kredit' => [
             ['label' => 'Pinjaman'], ['label' => 'Jadwal Angsuran'], ['label' => 'Pembayaran Angsuran'],
@@ -21,7 +22,9 @@
             ['label' => 'Saldo Awal', 'route' => 'opening-balance'],
         ],
         'Persediaan' => [
-            ['label' => 'Stok Barang'], ['label' => 'Kartu Stok'], ['label' => 'Stok Opname'],
+            ['label' => 'Stok Barang', 'route' => 'inventory.stock'],
+            ['label' => 'Kartu Stok', 'route' => 'inventory.stock'],
+            ['label' => 'Stok Opname'],
         ],
         'Akuntansi' => [
             ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal'],
