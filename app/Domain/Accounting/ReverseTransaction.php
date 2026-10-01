@@ -3,12 +3,16 @@
 namespace App\Domain\Accounting;
 
 use App\Domain\Inventory\StockLedger;
+use App\Domain\Lending\LoanCacheUpdater;
 use App\Domain\Shared\DomainException;
+use App\Enums\TransaksiJenis;
 use App\Enums\TransaksiStatus;
 use App\Models\AlokasiPelunasan;
 use App\Models\LogAktivitas;
 use App\Models\MutasiStok;
+use App\Models\PembayaranAngsuran;
 use App\Models\PeriodeAkuntansi;
+use App\Models\Pinjaman;
 use App\Models\Produk;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
@@ -28,6 +32,7 @@ class ReverseTransaction
         private PeriodGuard $periodGuard,
         private AuditWriter $audit,
         private StockLedger $stockLedger,
+        private LoanCacheUpdater $loanCache,
     ) {}
 
     public function reverse(Transaksi $original, string $reversalDate, string $reason, User $actor, string $requestKey, string $requestHash): Transaksi
@@ -60,6 +65,8 @@ class ReverseTransaction
             $this->assertNoPostedSettlement($orig);
             // Dependensi stok: mutasi transaksi ini harus yang terbaru per produk.
             $this->assertStockMovementsAreLatest($orig);
+            // Dependensi pinjaman: pencairan tak bisa dibalik bila sudah ada angsuran.
+            $this->assertNoPostedInstallments($orig);
 
             $periode = PeriodeAkuntansi::whereDate('tanggal_mulai', '<=', $reversalDate)
                 ->whereDate('tanggal_selesai', '>=', $reversalDate)
@@ -112,6 +119,15 @@ class ReverseTransaction
             // yang melekat pada original otomatis berhenti dihitung (status filter).
             $orig->update(['status' => TransaksiStatus::Reversed->value]);
 
+            // Pembayaran angsuran dibalik → segarkan cache pinjaman dari histori.
+            if ($orig->jenis_transaksi === TransaksiJenis::Angsuran) {
+                $loan = PembayaranAngsuran::with('angsuran.pinjaman')
+                    ->where('transaksi_id', $orig->id)->first()?->angsuran?->pinjaman;
+                if ($loan) {
+                    $this->loanCache->refresh($loan);
+                }
+            }
+
             $periode->increment('revision');
 
             $this->audit->log($actor->id, 'Accounting', 'reverse', 'transaksi', $orig->id, null, ['reversal_id' => $reversal->id], $reason, $requestKey, $requestHash, ['transaksi_id' => $reversal->id]);
@@ -128,6 +144,26 @@ class ReverseTransaction
 
         if ($hasSettlement) {
             throw DomainException::reverseDependency('Balik pelunasan yang terkait transaksi ini terlebih dahulu.');
+        }
+    }
+
+    private function assertNoPostedInstallments(Transaksi $orig): void
+    {
+        if ($orig->jenis_transaksi !== TransaksiJenis::Pencairan) {
+            return;
+        }
+
+        $loan = Pinjaman::where('transaksi_id', $orig->id)->first();
+        if (! $loan) {
+            return;
+        }
+
+        $hasPayment = PembayaranAngsuran::whereHas('angsuran', fn ($q) => $q->where('pinjaman_id', $loan->id))
+            ->whereHas('transaksi', fn ($q) => $q->whereNotNull('posted_at')->where('status', 'posted'))
+            ->exists();
+
+        if ($hasPayment) {
+            throw DomainException::reverseDependency('Balik pembayaran angsuran pinjaman ini terlebih dahulu.');
         }
     }
 

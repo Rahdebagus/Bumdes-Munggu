@@ -86,9 +86,8 @@ class PostingService
             // plan; applyEffects dapat mengubah state stok yang dipakai compute).
             $documentTotal = $strategy->documentTotal($trx);
 
-            // Efek domain (stok/subledger/cache) dalam transaksi yang sama.
-            $strategy->applyEffects($trx);
-
+            // Tandai posted DULU agar efek yang membaca histori terposting
+            // (mis. cache pinjaman dari pembayaran) menghitung transaksi ini.
             $trx->update([
                 'total' => $documentTotal,
                 'status' => TransaksiStatus::Posted->value,
@@ -96,6 +95,9 @@ class PostingService
                 'posted_at' => now(),
                 'version' => $trx->version + 1,
             ]);
+
+            // Efek domain (stok/subledger/cache) dalam transaksi yang sama.
+            $strategy->applyEffects($trx);
 
             $periode->increment('revision');
 

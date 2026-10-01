@@ -7,6 +7,9 @@ use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
 use App\Livewire\Cash\Create as CashCreate;
 use App\Livewire\Dashboard\Index as Dashboard;
 use App\Livewire\Inventory\Stock as StockIndex;
+use App\Livewire\Lending\Loans\Create as LoanCreate;
+use App\Livewire\Lending\Loans\Index as LoansIndex;
+use App\Livewire\Lending\Loans\Show as LoanShow;
 use App\Livewire\MasterData\Accounts;
 use App\Livewire\MasterData\Parties;
 use App\Livewire\MasterData\Products;
@@ -45,6 +48,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Daftar & detail transaksi (drilldown jurnal + kartu stok, post/reverse).
     Route::get('/transaksi', TransactionsIndex::class)->name('transactions.index');
     Route::get('/transaksi/{transaksi}', TransactionsShow::class)->name('transactions.show');
+
+    // Usaha kredit: pinjaman, jadwal, pembayaran angsuran.
+    Route::get('/pinjaman', LoansIndex::class)->name('loans.index');
+    Route::get('/pinjaman/baru', LoanCreate::class)->name('loans.create');
+    Route::get('/pinjaman/{pinjaman}', LoanShow::class)->name('loans.show');
 
     // Persediaan + kartu stok.
     Route::get('/persediaan', StockIndex::class)->name('inventory.stock');

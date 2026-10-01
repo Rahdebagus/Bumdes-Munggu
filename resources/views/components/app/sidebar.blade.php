@@ -12,7 +12,8 @@
             ['label' => 'Daftar Transaksi', 'route' => 'transactions.index'],
         ],
         'Usaha Kredit' => [
-            ['label' => 'Pinjaman'], ['label' => 'Jadwal Angsuran'], ['label' => 'Pembayaran Angsuran'],
+            ['label' => 'Pinjaman', 'route' => 'loans.index'],
+            ['label' => 'Jadwal & Pembayaran', 'route' => 'loans.index'],
         ],
         'Data Master' => [
             ['label' => 'Unit Usaha', 'route' => 'master.units'],

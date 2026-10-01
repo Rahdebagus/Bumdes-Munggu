@@ -1,6 +1,6 @@
 # Progress implementasi
 
-Status: **TAHAP00–05 SELESAI** (per 1 Okt 2026). Tahap05 lengkap & teruji di MariaDB: **dagang + persediaan/HPP** (moving-average, `mutasi_stok`, larangan backdate & stok negatif), **kas + pelunasan** (tanpa pendapatan ganda, tolak lebih bayar), **reverse** untuk jurnal/dagang/kas (membalik stok + pelunasan, dengan dependency guard), **bukti transaksi privat** (upload/verify/reject/unduh berpolicy), dan **UI Blade/Livewire** (penjualan/pembelian/kas, daftar + detail transaksi dengan drilldown jurnal & kartu stok + posting/reverse + bukti, persediaan + kartu stok). Berikutnya tahap06 (usaha kredit: pinjaman/jadwal/angsuran). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
+Status: **TAHAP00–06 SELESAI** (per 1 Okt 2026). Tahap06 (usaha kredit) lengkap & teruji di MariaDB: kontrak pinjaman + `basis_bunga` wajib (flat_total/flat_bulanan), jadwal angsuran bulanan (pembulatan ke jadwal terakhir, tanggal jangkar tanpa drift), pencairan (Dr piutang pinjaman/Cr kas, status→aktif), pembayaran sebagian pokok/bunga/denda via histori `pembayaran_angsuran` (cache diverifikasi dari histori), reverse pembayaran memulihkan outstanding, tolak overpayment & alokasi lintas pinjaman, reverse pencairan ditolak bila sudah ada angsuran. UI pinjaman (daftar/buat+pratinjau jadwal/detail: cairkan & bayar). Cocok fixture C & A dokumen11 (bunga 100rb/144rb, jadwal 333.333,33/.33/.34). Berikutnya tahap07 (opname, aset, penyusutan). PROGRESS dikelola dari root aplikasi `bumdes-munggu/`.
 
 ## Environment aktual
 
@@ -25,7 +25,7 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - [x]03 Master, opening/import/rincian/lock
 - [x]04 Posting, reverse, audit, period guard
 - [x]05 Dagang, kas, stok, pelunasan, bukti
-- [ ]06 Pinjaman, jadwal, angsuran parsial
+- [x]06 Pinjaman, jadwal, angsuran parsial
 - [ ]07 Opname, approval, aset, penyusutan
 - [ ]08 Enam laporan, dashboard live, PDF/XLSX
 - [ ]09 Snapshot desa, rekonsiliasi, close/reopen
@@ -85,10 +85,17 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 - **Bukti**: `UploadEvidence` (disk private `local`, sha256, MIME/5MiB), `VerifyEvidence` (verify/reject), Gate `verify-evidence` (Pimpinan atau Admin bukan pengunggah), `EvidenceDownloadController` (attachment, route auth), UI unggah/verifikasi/tolak/unduh di `Show`.
 - Terverifikasi: reverse penjualan mengembalikan stok (5→10), tolak bila ada mutasi lebih baru / pelunasan belum dibalik, reverse pelunasan memulihkan outstanding (0→100rb); unggah bukti ke disk private, Pimpinan verifikasi, pengunggah tak boleh verifikasi bukti sendiri, tolak dengan alasan.
 
-**Next task konkret (tahap06 — dokumen 06/08/11 fixture C):**
-1. Pinjaman: kontrak + `basis_bunga` wajib (flat_total/flat_bulanan), total bunga, jadwal bulanan (tanggal jangkar tanpa drift, selisih pembulatan ke jadwal terakhir), pencairan (planner `pencairan`).
-2. Angsuran: pembayaran sebagian pokok/bunga/denda via `pembayaran_angsuran` (histori), cache angsuran/sisa_pokok diverifikasi dari histori, reverse alokasi.
-3. UI pinjaman/jadwal/pembayaran. Uji fixture C dokumen11. Jangan ganti pinjaman dengan piutang penjualan / tabungan.
+**TAHAP06 SELESAI (1 Okt 2026) — usaha kredit:**
+- `ScheduleCalculator` (total bunga flat_total/flat_bulanan; pokok/bunga dibagi 2 desimal, sisa ke jadwal terakhir; tanggal jangkar `addMonthsNoOverflow` tanpa drift). `SaveLoanDraft` (kontrak + jadwal angsuran). `LoanDisbursementStrategy` (planner `pencairan`: Dr piutang pinjaman/Cr kas, status→aktif) + `DisburseLoan`.
+- `SaveInstallmentPayment` (+tolak lintas pinjaman) + `InstallmentPaymentStrategy` (planner `angsuran`: Dr kas; Cr piutang pinjaman/bunga/denda; tolak overpayment per komponen) + `LoanBalanceQuery` + `LoanCacheUpdater` (cache dari histori terposting). Reverse angsuran memulihkan cache; reverse pencairan ditolak bila sudah ada angsuran.
+- **Perbaikan mesin:** PostingService menandai posted SEBELUM `applyEffects` (agar cache pinjaman menghitung pembayaran ini).
+- UI Lending\Loans (Index/Create+pratinjau jadwal/Show: cairkan & bayar). Route + sidebar Usaha Kredit.
+- Terverifikasi (fixture C & A): bunga 100rb (1jt×10%) & 144rb (1,2jt×12%), jadwal 333.333,33/.33/.34, pembayaran sebagian + histori, reverse pulih, overpayment & lintas-pinjaman ditolak.
+
+**Next task konkret (tahap07 — dokumen 06/08):**
+1. Stok opname: draft→selesai→menunggu_persetujuan→disetujui→post dengan revisi, policy Pimpinan approve, `stock_version` snapshot + stale detection (tolak bila ada mutasi baru sejak hitung).
+2. Aset tetap: register (perolehan via transaksi/opening), penyusutan garis lurus bulanan penuh, batas residu, unique efektif aset+periode, reverse/repost (fixture E).
+3. Pakai service yang sama untuk efek ledger/stok; jangan post via queue. UI opname & aset/penyusutan.
 
 **Catatan:** Chart of accounts (`config/accounting.php` + seeder) masih **[TEKNIS] menunggu validasi pengelola** sebelum data nyata. PeriodGuard memakai model cutover; relaksasi carry-forward multi-periode = tahap09.
 
@@ -109,7 +116,8 @@ Diverifikasi lokal 28 September 2026 (Windows 11, PowerShell) lewat `php -v`, `c
 | 2026-09-28 | 05→git | Commit tahap05 bagian 1 `311ad7a`. | — | Repo `main` bersih. | Kas + pelunasan |
 | 2026-09-28 | 05 (kas) | Cash: SaveCashDraft, CashPostingStrategy (pemasukan/pengeluaran per kategori + pelunasan piutang/utang), SettlementQuery; daftar strategy pemasukan/pengeluaran. Perbaikan PostingService: documentTotal sebelum applyEffects. Tanpa migration baru. | `vendor/bin/pint` (fixed 1 import), **`php artisan test` = 71 passed / 214 assertions** di `bumdes_munggu_test` (Cash: pemasukan jasa, pengeluaran beban, pelunasan tanpa pendapatan ganda, overpayment ditolak; + semua tahap sebelumnya). | Semua lulus. Pelunasan mengurangi piutang (outstanding 100rb→0) tanpa pendapatan baru; lebih bayar ditolak + rollback; bug recompute penjualan-habis-stok diperbaiki. **Sisa tahap05:** bukti privat, reverse dagang, UI. | Commit `c26fc1b`; lalu UI |
 | 2026-10-01 | 05 (UI) | Livewire: Trading\Create (penjualan/pembelian), Cash\Create (+pelunasan pilih invoice), Accounting\Transactions\Index + Show (drilldown jurnal+kartu stok, post/reverse), Inventory\Stock (+kartu stok). Route + sidebar Transaksi/Persediaan. DemoSeeder: saldo awal cutover terkunci (Kas/Modal). Tanpa migration baru. | `php artisan route:list` (6 route baru), `vendor/bin/pint` (passed/minor), `npm run build` (manifest OK), `db:seed DemoSeeder` (periode Jan terkunci), **`php artisan test` = 74 passed / 223 assertions** (TradingUiTest: buat penjualan→posting stok 10→5, Pimpinan 403 buat & posting; + semua sebelumnya). | Semua lulus. Alur dagang end-to-end lewat UI terverifikasi; Pimpinan tertolak; drilldown jurnal+kartu stok tampil. **Sisa tahap05:** bukti privat + reverse dagang/kas. | Commit `4b538cd`; lalu bukti+reverse |
-| 2026-10-01 | 05 (bukti+reverse) | Reverse: StockLedger::reverseMovement + ReverseTransaction (balik stok generik + guard mutasi-terbaru & pelunasan-dulu); Show reverse aktif semua jenis. Bukti: UploadEvidence (disk private+sha256), VerifyEvidence, Gate verify-evidence, EvidenceDownloadController + route; UI unggah/verify/tolak/unduh di Show. Tanpa migration baru. | `vendor/bin/pint` (fixed import), `npm run build` (OK), **`php artisan test` = 82 passed / 246 assertions** (ReverseTradingTest 4: stok kembali, dependensi mutasi/pelunasan, outstanding pulih; EvidenceTest 4: unggah private, verifikasi Pimpinan, pengunggah ditolak, tolak beralasan; + semua sebelumnya). | Semua lulus. **TAHAP05 LENGKAP.** | Tahap06: pinjaman/jadwal/angsuran |
+| 2026-10-01 | 05 (bukti+reverse) | Reverse: StockLedger::reverseMovement + ReverseTransaction (balik stok generik + guard mutasi-terbaru & pelunasan-dulu); Show reverse aktif semua jenis. Bukti: UploadEvidence (disk private+sha256), VerifyEvidence, Gate verify-evidence, EvidenceDownloadController + route; UI unggah/verify/tolak/unduh di Show. Tanpa migration baru. | `vendor/bin/pint` (fixed import), `npm run build` (OK), **`php artisan test` = 82 passed / 246 assertions** (ReverseTradingTest 4: stok kembali, dependensi mutasi/pelunasan, outstanding pulih; EvidenceTest 4: unggah private, verifikasi Pimpinan, pengunggah ditolak, tolak beralasan; + semua sebelumnya). | Semua lulus. **TAHAP05 LENGKAP.** Commit `42938db`. | Tahap06: pinjaman/jadwal/angsuran |
+| 2026-10-01 | 06 | Lending domain: ScheduleCalculator, SaveLoanDraft, LoanDisbursementStrategy+DisburseLoan, SaveInstallmentPayment+InstallmentPaymentStrategy, LoanBalanceQuery, LoanCacheUpdater; daftar strategy pencairan/angsuran; ReverseTransaction recompute cache angsuran + guard pencairan. Fix PostingService: posted sebelum applyEffects. UI Loans Index/Create(pratinjau)/Show(cairkan+bayar) + route + sidebar. Tanpa migration baru. | `vendor/bin/pint` (passed), `npm run build` (OK), `route:list` (3 route pinjaman), **`php artisan test` = 95 passed / 286 assertions** (ScheduleCalculatorTest 4, LendingTest 6, LendingUiTest 3: fixture C bunga/jadwal, disbursement, partial+histori, reverse pulih, overpayment & lintas-pinjaman ditolak, reverse pencairan diblokir; + semua sebelumnya). | Semua lulus. **TAHAP06 LENGKAP.** | Tahap07: opname + aset/penyusutan |
 
 ## Keputusan operasional sebelum data nyata
 
