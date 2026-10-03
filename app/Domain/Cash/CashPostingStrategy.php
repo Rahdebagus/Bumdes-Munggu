@@ -28,18 +28,19 @@ class CashPostingStrategy implements PostingStrategy
         $kas = $trx->akun_kas_id ?? $sys->id('cash');
         $total = (string) $trx->total;
         $kode = $trx->kategori_kode;
+        $arus = $this->arusKas($kode);
 
         if (in_array($kode, self::PELUNASAN, true)) {
             $this->assertNoOverpayment($trx);
 
             return $kode === 'pelunasan_piutang'
                 ? new JournalPlan(
-                    new JournalLine($kas, debit: $total, keterangan: 'Pelunasan piutang', kelompokArusKas: 'operasi'),
+                    new JournalLine($kas, debit: $total, keterangan: 'Pelunasan piutang', kelompokArusKas: $arus),
                     new JournalLine($sys->id('trade_receivable'), kredit: $total, keterangan: 'Piutang usaha'),
                 )
                 : new JournalPlan(
                     new JournalLine($sys->id('trade_payable'), debit: $total, keterangan: 'Utang usaha'),
-                    new JournalLine($kas, kredit: $total, keterangan: 'Pembayaran utang', kelompokArusKas: 'operasi'),
+                    new JournalLine($kas, kredit: $total, keterangan: 'Pembayaran utang', kelompokArusKas: $arus),
                 );
         }
 
@@ -49,13 +50,23 @@ class CashPostingStrategy implements PostingStrategy
 
         return $trx->jenis_transaksi->value === 'pemasukan'
             ? new JournalPlan(
-                new JournalLine($kas, debit: $total, keterangan: 'Pemasukan', kelompokArusKas: 'operasi'),
+                new JournalLine($kas, debit: $total, keterangan: 'Pemasukan', kelompokArusKas: $arus),
                 new JournalLine($trx->akun_lawan_id, kredit: $total, keterangan: $trx->keterangan ?? 'Pemasukan'),
             )
             : new JournalPlan(
                 new JournalLine($trx->akun_lawan_id, debit: $total, keterangan: $trx->keterangan ?? 'Pengeluaran'),
-                new JournalLine($kas, kredit: $total, keterangan: 'Pengeluaran', kelompokArusKas: 'operasi'),
+                new JournalLine($kas, kredit: $total, keterangan: 'Pengeluaran', kelompokArusKas: $arus),
             );
+    }
+
+    /** Kelompok arus kas per kategori (dokumen10 §4). */
+    private function arusKas(string $kode): string
+    {
+        return match ($kode) {
+            'modal_masuk', 'modal_keluar' => 'pendanaan',
+            'perolehan_aset' => 'investasi',
+            default => 'operasi',
+        };
     }
 
     public function documentTotal(Transaksi $trx): string

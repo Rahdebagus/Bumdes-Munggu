@@ -29,18 +29,25 @@
         ],
         'Akuntansi' => [
             ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal'],
-            ['label' => 'Jurnal'], ['label' => 'Buku Besar'], ['label' => 'Periode Akuntansi'],
+            ['label' => 'Jurnal'],
+            ['label' => 'Buku Besar', 'route' => 'reports.index', 'params' => ['type' => 'buku-besar']],
+            ['label' => 'Periode Akuntansi'],
         ],
         'Aset' => [
             ['label' => 'Aset Tetap', 'route' => 'assets.index'],
             ['label' => 'Penyusutan', 'route' => 'assets.index'],
         ],
         'Laporan' => [
-            ['label' => 'Laba Rugi'], ['label' => 'Neraca'], ['label' => 'Perubahan Modal'],
-            ['label' => 'Arus Kas'], ['label' => 'Kredit'], ['label' => 'Omzet Desa'],
+            ['label' => 'Laba Rugi', 'route' => 'reports.index', 'params' => ['type' => 'laba-rugi']],
+            ['label' => 'Neraca', 'route' => 'reports.index', 'params' => ['type' => 'neraca']],
+            ['label' => 'Perubahan Modal', 'route' => 'reports.index', 'params' => ['type' => 'perubahan-modal']],
+            ['label' => 'Arus Kas', 'route' => 'reports.index', 'params' => ['type' => 'arus-kas']],
+            ['label' => 'Kredit', 'route' => 'reports.index', 'params' => ['type' => 'kredit']],
+            ['label' => 'Omzet Desa', 'route' => 'reports.index', 'params' => ['type' => 'omzet-desa']],
         ],
         'Pengawasan' => [
-            ['label' => 'Audit/Rekonsiliasi'], ['label' => 'Bukti Transaksi'], ['label' => 'Histori Aktivitas'],
+            ['label' => 'Audit/Rekonsiliasi', 'route' => 'reports.index'],
+            ['label' => 'Bukti Transaksi'], ['label' => 'Histori Aktivitas'],
         ],
     ];
 @endphp
@@ -62,7 +69,7 @@
                     @php $hasRoute = isset($item['route']) && \Illuminate\Support\Facades\Route::has($item['route']); @endphp
                     <li>
                         @if ($hasRoute)
-                            <a href="{{ route($item['route']) }}" wire:navigate
+                            <a href="{{ route($item['route'], $item['params'] ?? []) }}" wire:navigate
                                @class([
                                    'flex items-center rounded-lg px-3 py-2 text-sm font-medium',
                                    'bg-emerald-50 text-emerald-700' => request()->routeIs($item['route']),

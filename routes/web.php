@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\EvidenceDownloadController;
+use App\Http\Controllers\ReportExportController;
 use App\Livewire\Accounting\ManualJournal;
 use App\Livewire\Accounting\Transactions\Index as TransactionsIndex;
 use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
@@ -21,6 +22,7 @@ use App\Livewire\MasterData\Parties;
 use App\Livewire\MasterData\Products;
 use App\Livewire\MasterData\Units;
 use App\Livewire\OpeningBalance\Index as OpeningBalanceIndex;
+use App\Livewire\Reports\Index as ReportsIndex;
 use App\Livewire\Trading\Create as TradingCreate;
 use Illuminate\Support\Facades\Route;
 
@@ -72,6 +74,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/aset', AssetsIndex::class)->name('assets.index');
     Route::get('/aset/baru', AssetCreate::class)->name('assets.create');
     Route::get('/aset/{aset}', AssetShow::class)->name('assets.show');
+
+    // Laporan, rekonsiliasi, dan ekspor (PDF/XLSX dari dataset yang sama).
+    Route::get('/laporan', ReportsIndex::class)->name('reports.index');
+    Route::get('/laporan/ekspor', ReportExportController::class)->name('reports.export');
 
     // Unduh bukti transaksi (disk private, attachment).
     Route::get('/bukti/{bukti}/download', EvidenceDownloadController::class)->name('evidence.download');
