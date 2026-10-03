@@ -78,10 +78,13 @@
                                 </select>
                                 @error("items.$i.produk_id") <p class="text-xs text-red-600">{{ $message }}</p> @enderror
                             </td>
-                            <td class="px-3 py-1.5"><input type="number" step="0.0001" wire:model="items.{{ $i }}.kuantitas" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm"></td>
-                            <td class="px-3 py-1.5"><input type="number" step="0.01" wire:model="items.{{ $i }}.harga" class="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm"></td>
-                            <td class="px-3 py-1.5"><input type="number" step="0.01" wire:model="items.{{ $i }}.diskon" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm"></td>
-                            <td class="px-3 py-1.5"><input type="number" step="0.01" wire:model="items.{{ $i }}.pajak" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm"></td>
+                            <td class="px-3 py-1.5"><input type="number" step="0.0001" min="0" wire:model.live.debounce.500ms="items.{{ $i }}.kuantitas" class="w-full min-w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm tabular-nums"></td>
+                            <td class="px-3 py-1.5"><input type="number" step="0.01" min="0" wire:model.live.debounce.500ms="items.{{ $i }}.harga" class="w-full min-w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm tabular-nums"></td>
+                            <td class="px-3 py-1.5">
+                                <input type="number" step="0.01" min="0" wire:model.live.debounce.500ms="items.{{ $i }}.diskon" class="w-full min-w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm tabular-nums">
+                                @error("items.$i.diskon") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </td>
+                            <td class="px-3 py-1.5"><input type="number" step="0.01" min="0" wire:model.live.debounce.500ms="items.{{ $i }}.pajak" class="w-full min-w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm tabular-nums"></td>
                             <td class="px-3 py-1.5 text-right">
                                 @if (count($items) > 1)
                                     <button wire:click="removeItem({{ $i }})" class="text-sm text-red-600 hover:underline">Hapus</button>
@@ -94,13 +97,19 @@
         </div>
         @error('items') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
 
+        @php($totalNegatif = (float) $this->total < 0)
         <div class="mt-3 flex items-center justify-between">
             <x-ui.button variant="secondary" wire:click="addItem">+ Baris</x-ui.button>
-            <div class="text-sm text-slate-600">Total: <span class="font-semibold tabular-nums text-slate-900">{{ number_format((float) $this->total, 2, ',', '.') }}</span></div>
+            <div class="text-sm text-slate-600">Total:
+                <span @class(['font-semibold tabular-nums', 'text-red-600' => $totalNegatif, 'text-slate-900' => ! $totalNegatif])>{{ number_format((float) $this->total, 2, ',', '.') }}</span>
+            </div>
         </div>
+        @if ($totalNegatif)
+            <p class="mt-1 text-right text-xs text-red-600">Total negatif — periksa kolom Harga/Diskon (diskon tidak boleh melebihi qty × harga).</p>
+        @endif
 
         <div class="mt-4 flex justify-end">
-            <x-ui.button wire:click="save" wire:loading.attr="disabled">Simpan Draft</x-ui.button>
+            <x-ui.button wire:click="save" wire:loading.attr="disabled" :disabled="$totalNegatif">Simpan Draft</x-ui.button>
         </div>
     </x-ui.card>
 </div>

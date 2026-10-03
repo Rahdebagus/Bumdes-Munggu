@@ -91,6 +91,16 @@ class Create extends Component
             'items.*.pajak' => ['nullable', 'numeric', 'min:0'],
         ]);
 
+        // Diskon tidak boleh melebihi (qty × harga) → subtotal baris negatif.
+        foreach ($data['items'] as $idx => $it) {
+            $net = Decimal::sub(Decimal::mul($it['kuantitas'], $it['harga']), $it['diskon'] ?: 0);
+            if (Decimal::compare($net, 0) < 0) {
+                $this->addError("items.$idx.diskon", 'Diskon melebihi (qty × harga); subtotal baris tidak boleh negatif.');
+
+                return null;
+            }
+        }
+
         try {
             $trx = $action->handle([
                 'tanggal' => $data['tanggal'],

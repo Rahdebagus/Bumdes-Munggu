@@ -61,6 +61,38 @@ class PeriodUiTest extends TestCase
         $this->assertSame(PeriodeStatus::Terbuka, $this->periode->fresh()->status);
     }
 
+    public function test_admin_dapat_membuat_periode_baru(): void
+    {
+        Livewire::actingAs($this->admin)->test(Index::class)
+            ->set('newBulan', 10)
+            ->set('newTahun', 2026)
+            ->call('createPeriod')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('periode_akuntansi', [
+            'bulan' => 10, 'tahun' => 2026, 'status' => 'terbuka',
+            'tanggal_mulai' => '2026-10-01', 'tanggal_selesai' => '2026-10-31',
+        ]);
+    }
+
+    public function test_membuat_periode_duplikat_ditolak(): void
+    {
+        Livewire::actingAs($this->admin)->test(Index::class)
+            ->set('newBulan', 1)
+            ->set('newTahun', 2026)
+            ->call('createPeriod')
+            ->assertHasErrors('periode');
+    }
+
+    public function test_pimpinan_tidak_boleh_membuat_periode(): void
+    {
+        Livewire::actingAs($this->pimpinan)->test(Index::class)
+            ->set('newBulan', 11)
+            ->set('newTahun', 2026)
+            ->call('createPeriod')
+            ->assertForbidden();
+    }
+
     public function test_admin_dapat_reopen_dengan_alasan(): void
     {
         app(ClosePeriod::class)->handle($this->periode, $this->admin);

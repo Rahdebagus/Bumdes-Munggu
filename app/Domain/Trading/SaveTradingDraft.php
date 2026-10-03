@@ -33,6 +33,14 @@ class SaveTradingDraft
             throw DomainException::invalidState('Tidak ada periode akuntansi untuk tanggal tersebut.');
         }
 
+        // Subtotal baris tidak boleh negatif (diskon > qty × harga).
+        foreach ($data['items'] as $item) {
+            $net = Decimal::sub(Decimal::mul($item['kuantitas'], $item['harga']), $item['diskon'] ?? 0);
+            if (Decimal::compare($net, 0) < 0) {
+                throw DomainException::invalidState('Diskon melebihi (kuantitas × harga); subtotal baris tidak boleh negatif.');
+            }
+        }
+
         $prefix = $jenis === TransaksiJenis::Penjualan ? 'SL' : 'PB';
 
         return DB::transaction(function () use ($data, $jenis, $actor, $periode, $prefix) {

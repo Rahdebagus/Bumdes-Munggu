@@ -7,6 +7,7 @@ use App\Domain\Period\ReopenPeriod;
 use App\Domain\Shared\DomainException;
 use App\Models\PeriodeAkuntansi;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -20,6 +21,44 @@ class Index extends Component
     public ?int $reopenId = null;
 
     public string $reopenReason = '';
+
+    public int $newBulan = 0;
+
+    public int $newTahun = 0;
+
+    public function mount(): void
+    {
+        $this->newBulan = (int) now()->month;
+        $this->newTahun = (int) now()->year;
+    }
+
+    public function createPeriod(): void
+    {
+        $this->authorize('manage-period');
+
+        $this->validate([
+            'newBulan' => ['required', 'integer', 'between:1,12'],
+            'newTahun' => ['required', 'integer', 'between:2020,2100'],
+        ]);
+
+        if (PeriodeAkuntansi::where('tahun', $this->newTahun)->where('bulan', $this->newBulan)->exists()) {
+            $this->addError('periode', "Periode {$this->newBulan}/{$this->newTahun} sudah ada.");
+
+            return;
+        }
+
+        $mulai = Carbon::create($this->newTahun, $this->newBulan, 1);
+        PeriodeAkuntansi::create([
+            'bulan' => $this->newBulan,
+            'tahun' => $this->newTahun,
+            'tanggal_mulai' => $mulai->toDateString(),
+            'tanggal_selesai' => $mulai->copy()->endOfMonth()->toDateString(),
+            'status' => 'terbuka',
+            'revision' => 0,
+        ]);
+
+        session()->flash('status', "Periode {$this->newBulan}/{$this->newTahun} dibuat (terbuka). Kunci saldo awal di menu Saldo Awal, atau posting langsung bila cutover sebelumnya sudah terkunci.");
+    }
 
     public function periods()
     {

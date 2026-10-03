@@ -9,6 +9,28 @@
     @endif
     @error('periode')<div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{{ $message }}</div>@enderror
 
+    @can('manage-period')
+        <x-ui.card title="Tambah Periode" subtitle="Buat periode bulan baru agar transaksi tanggal tersebut dapat dicatat">
+            <div class="flex flex-wrap items-end gap-3">
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">Bulan</span>
+                    <select wire:model="newBulan" class="mt-1 rounded-lg border-slate-300 text-sm">
+                        @foreach (range(1, 12) as $m)
+                            <option value="{{ $m }}">{{ str_pad($m, 2, '0', STR_PAD_LEFT) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">Tahun</span>
+                    <input type="number" wire:model="newTahun" class="mt-1 w-28 rounded-lg border-slate-300 text-sm tabular-nums">
+                </label>
+                <x-ui.button wire:click="createPeriod">Buat periode</x-ui.button>
+            </div>
+            @error('newBulan')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+            @error('newTahun')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+        </x-ui.card>
+    @endcan
+
     <x-ui.card>
         <table class="w-full text-sm">
             <thead>
