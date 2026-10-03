@@ -25,14 +25,15 @@
         'Persediaan' => [
             ['label' => 'Stok Barang', 'route' => 'inventory.stock'],
             ['label' => 'Kartu Stok', 'route' => 'inventory.stock'],
-            ['label' => 'Stok Opname'],
+            ['label' => 'Stok Opname', 'route' => 'stocktakes.index'],
         ],
         'Akuntansi' => [
             ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal'],
             ['label' => 'Jurnal'], ['label' => 'Buku Besar'], ['label' => 'Periode Akuntansi'],
         ],
         'Aset' => [
-            ['label' => 'Aset Tetap'], ['label' => 'Penyusutan'],
+            ['label' => 'Aset Tetap', 'route' => 'assets.index'],
+            ['label' => 'Penyusutan', 'route' => 'assets.index'],
         ],
         'Laporan' => [
             ['label' => 'Laba Rugi'], ['label' => 'Neraca'], ['label' => 'Perubahan Modal'],

@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Domain\Accounting\JournalPlanRegistry;
 use App\Domain\Accounting\Planners\ManualJournalPlanner;
 use App\Domain\Cash\CashPostingStrategy;
+use App\Domain\FixedAssets\DepreciationStrategy;
+use App\Domain\Inventory\OpnameAdjustmentStrategy;
 use App\Domain\Lending\InstallmentPaymentStrategy;
 use App\Domain\Lending\LoanDisbursementStrategy;
 use App\Domain\Trading\PurchasePostingStrategy;
@@ -34,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(TransaksiJenis::Pengeluaran->value, $app->make(CashPostingStrategy::class));
             $registry->register(TransaksiJenis::Pencairan->value, $app->make(LoanDisbursementStrategy::class));
             $registry->register(TransaksiJenis::Angsuran->value, $app->make(InstallmentPaymentStrategy::class));
+            $registry->register(TransaksiJenis::Penyusutan->value, $app->make(DepreciationStrategy::class));
+            $registry->registerSource('stok_opname', $app->make(OpnameAdjustmentStrategy::class));
 
             return $registry;
         });
@@ -52,6 +56,9 @@ class AppServiceProvider extends ServiceProvider
         // sendiri [TEKNIS] (matriks kewenangan dokumen01).
         Gate::define('verify-evidence', fn (User $user, BuktiTransaksi $bukti) => $user->isPimpinan()
             || ($user->isAdmin() && $bukti->uploaded_by !== $user->id));
+
+        // Approval opname & laporan desa = Pimpinan (matriks kewenangan dokumen01).
+        Gate::define('approve-stocktake', fn (User $user) => $user->isPimpinan());
 
         // Middleware status aktif dijaga persisten pada request update Livewire,
         // bukan hanya pada GET halaman awal.

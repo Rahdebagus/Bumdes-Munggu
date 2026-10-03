@@ -64,4 +64,14 @@ class DomainException extends RuntimeException
     {
         return new self('OVERPAYMENT', $message);
     }
+
+    public static function staleSnapshot(string $message): self
+    {
+        return new self('STALE_SNAPSHOT', $message);
+    }
+
+    public static function depreciationExists(string $message): self
+    {
+        return new self('DEPRECIATION_EXISTS', $message);
+    }
 }

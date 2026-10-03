@@ -117,7 +117,9 @@ class ReverseTransaction
 
             // Original menjadi reversed; posted_at TIDAK diubah. Alokasi pelunasan
             // yang melekat pada original otomatis berhenti dihitung (status filter).
-            $orig->update(['status' => TransaksiStatus::Reversed->value]);
+            // posting_key dikosongkan agar repost terkoreksi (mis. penyusutan) bisa
+            // memakai key yang sama (dokumen05).
+            $orig->update(['status' => TransaksiStatus::Reversed->value, 'posting_key' => null]);
 
             // Pembayaran angsuran dibalik → segarkan cache pinjaman dari histori.
             if ($orig->jenis_transaksi === TransaksiJenis::Angsuran) {

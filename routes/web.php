@@ -6,7 +6,13 @@ use App\Livewire\Accounting\Transactions\Index as TransactionsIndex;
 use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
 use App\Livewire\Cash\Create as CashCreate;
 use App\Livewire\Dashboard\Index as Dashboard;
+use App\Livewire\FixedAssets\Create as AssetCreate;
+use App\Livewire\FixedAssets\Index as AssetsIndex;
+use App\Livewire\FixedAssets\Show as AssetShow;
 use App\Livewire\Inventory\Stock as StockIndex;
+use App\Livewire\Inventory\Stocktakes\Create as StocktakeCreate;
+use App\Livewire\Inventory\Stocktakes\Index as StocktakesIndex;
+use App\Livewire\Inventory\Stocktakes\Show as StocktakeShow;
 use App\Livewire\Lending\Loans\Create as LoanCreate;
 use App\Livewire\Lending\Loans\Index as LoansIndex;
 use App\Livewire\Lending\Loans\Show as LoanShow;
@@ -56,6 +62,16 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Persediaan + kartu stok.
     Route::get('/persediaan', StockIndex::class)->name('inventory.stock');
+
+    // Stok opname (workflow + approval Pimpinan).
+    Route::get('/stok-opname', StocktakesIndex::class)->name('stocktakes.index');
+    Route::get('/stok-opname/baru', StocktakeCreate::class)->name('stocktakes.create');
+    Route::get('/stok-opname/{opname}', StocktakeShow::class)->name('stocktakes.show');
+
+    // Aset tetap + penyusutan.
+    Route::get('/aset', AssetsIndex::class)->name('assets.index');
+    Route::get('/aset/baru', AssetCreate::class)->name('assets.create');
+    Route::get('/aset/{aset}', AssetShow::class)->name('assets.show');
 
     // Unduh bukti transaksi (disk private, attachment).
     Route::get('/bukti/{bukti}/download', EvidenceDownloadController::class)->name('evidence.download');
