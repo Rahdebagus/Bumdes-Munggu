@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reporting;
 
+use App\Models\LaporanDesa;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -25,15 +26,7 @@ class ReportExporter
      */
     public function pdf(string $type, array $filters): array
     {
-        $data = $this->datasets->build($type, $filters);
-        $html = view('reports.print', ['data' => $data])->render();
-        $pdf = Pdf::loadHTML($html)->setPaper('a4');
-
-        $filename = $this->filename($type, $data, 'pdf');
-        $path = 'laporan/'.Str::ulid().'_'.$filename;
-        Storage::disk('local')->put($path, $pdf->output());
-
-        return ['path' => $path, 'filename' => $filename];
+        return $this->renderPdf($this->datasets->build($type, $filters));
     }
 
     /**
@@ -42,19 +35,46 @@ class ReportExporter
      */
     public function xlsx(string $type, array $filters): array
     {
-        $data = $this->datasets->build($type, $filters);
+        return $this->renderXlsx($this->datasets->build($type, $filters));
+    }
 
+    /** Ekspor resmi dari snapshot laporan_desa tersimpan (bukan live query). */
+    public function laporanDesaPdf(LaporanDesa $laporan): array
+    {
+        return $this->renderPdf($this->datasets->fromLaporanDesa($laporan));
+    }
+
+    public function laporanDesaXlsx(LaporanDesa $laporan): array
+    {
+        return $this->renderXlsx($this->datasets->fromLaporanDesa($laporan));
+    }
+
+    /** @return array{path: string, filename: string} */
+    private function renderPdf(array $data): array
+    {
+        $html = view('reports.print', ['data' => $data])->render();
+        $pdf = Pdf::loadHTML($html)->setPaper('a4');
+
+        $filename = $this->filename($data['type'], $data, 'pdf');
+        $path = 'laporan/'.Str::ulid().'_'.$filename;
+        Storage::disk('local')->put($path, $pdf->output());
+
+        return ['path' => $path, 'filename' => $filename];
+    }
+
+    /** @return array{path: string, filename: string} */
+    private function renderXlsx(array $data): array
+    {
         $book = new Spreadsheet;
         $this->sheetRingkasan($book, $data);
         $this->sheetRincian($book, $data);
         $this->sheetMetadata($book, $data);
         $book->setActiveSheetIndex(0);
 
-        $filename = $this->filename($type, $data, 'xlsx');
+        $filename = $this->filename($data['type'], $data, 'xlsx');
         $path = 'laporan/'.Str::ulid().'_'.$filename;
-        $full = Storage::disk('local')->path($path);
         Storage::disk('local')->makeDirectory('laporan');
-        (new Xlsx($book))->save($full);
+        (new Xlsx($book))->save(Storage::disk('local')->path($path));
 
         return ['path' => $path, 'filename' => $filename];
     }
@@ -123,8 +143,8 @@ class ReportExporter
             ['Periode', $data['periode']],
             ['Unit', $data['unit']],
             ['Dibuat', $data['generated_at']],
-            ['Status', 'DRAFT — bukan laporan resmi bertandatangan'],
-            ['Sumber', 'ReportService (jurnal terposting + saldo awal terkunci)'],
+            ['Status', $data['status_label'] ?? 'DRAFT — bukan laporan resmi bertandatangan'],
+            ['Sumber', $data['sumber'] ?? 'ReportService (jurnal terposting + saldo awal terkunci)'],
         ];
         $r = 1;
         foreach ($meta as [$k, $v]) {

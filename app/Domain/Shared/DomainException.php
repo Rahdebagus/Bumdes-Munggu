@@ -74,4 +74,14 @@ class DomainException extends RuntimeException
     {
         return new self('DEPRECIATION_EXISTS', $message);
     }
+
+    public static function closeBlocked(string $message): self
+    {
+        return new self('CLOSE_BLOCKED', $message);
+    }
+
+    public static function revisionChanged(string $message = 'Data berubah sejak laporan dibuat; muat ulang lalu tinjau kembali.'): self
+    {
+        return new self('REVISION_CHANGED', $message);
+    }
 }

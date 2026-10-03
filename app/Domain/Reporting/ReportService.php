@@ -219,6 +219,42 @@ class ReportService
         );
     }
 
+    /**
+     * Rincian omzet desa untuk snapshot laporan_desa.
+     *
+     * @return array{omzet_dagang: string, pendapatan_kredit: string, pendapatan_lain: string, total_omzet: string}
+     */
+    public function omzetDesaBreakdown(string $from, string $to, ?int $unitId = null): array
+    {
+        $b = $this->systemKeyBalances($to, $unitId, includeOpening: false, from: $from);
+        $dagang = Decimal::of($b['sales'] ?? '0');
+        $kredit = Decimal::add($b['interest_income'] ?? '0', $b['penalty_income'] ?? '0');
+        $lain = Decimal::of($b['inventory_gain'] ?? '0');
+
+        return [
+            'omzet_dagang' => $dagang,
+            'pendapatan_kredit' => $kredit,
+            'pendapatan_lain' => $lain,
+            'total_omzet' => Decimal::add($dagang, Decimal::add($kredit, $lain)),
+        ];
+    }
+
+    /**
+     * Penanda revisi data untuk rentang periode: jumlah baris jurnal terposting
+     * pada [from,to]. Berubah bila ada posting/pembalik yang menyentuh rentang
+     * ini (dokumen10: deteksi perubahan antara preview, submit, approval).
+     */
+    public function dataRevision(string $from, string $to, ?int $unitId = null): int
+    {
+        return (int) TransaksiDetail::query()
+            ->join('transaksi', 'transaksi.id', '=', 'transaksi_detail.transaksi_id')
+            ->whereNotNull('transaksi.posted_at')
+            ->whereDate('transaksi.tanggal', '>=', $from)
+            ->whereDate('transaksi.tanggal', '<=', $to)
+            ->when($unitId, fn ($q) => $q->where('transaksi.unit_usaha_id', $unitId))
+            ->count();
+    }
+
     /** Akun id untuk sekumpulan system_key. @return array<int, int> */
     private function akunIdsForKeys(array $systemKeys): array
     {

@@ -32,7 +32,7 @@
     <div class="judul">
         <h2>{{ $data['title'] }}</h2>
         <p>Periode {{ $data['periode'] }} · {{ $data['unit'] }}</p>
-        <p>Dicetak {{ $data['generated_at'] }} · <span class="draft">DRAFT — BELUM DISAHKAN</span></p>
+        <p>Dicetak {{ $data['generated_at'] }} · <span class="draft">{{ $data['status_label'] ?? 'DRAFT — BELUM DISAHKAN' }}</span></p>
     </div>
 
     <table>

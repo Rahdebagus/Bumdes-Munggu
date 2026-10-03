@@ -59,6 +59,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Approval opname & laporan desa = Pimpinan (matriks kewenangan dokumen01).
         Gate::define('approve-stocktake', fn (User $user) => $user->isPimpinan());
+        Gate::define('approve-laporan', fn (User $user) => $user->isPimpinan());
+
+        // Tutup/buka periode = Admin (operasi akuntansi; matriks kewenangan dokumen01).
+        Gate::define('manage-period', fn (User $user) => $user->isAdmin());
 
         // Middleware status aktif dijaga persisten pada request update Livewire,
         // bukan hanya pada GET halaman awal.

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\EvidenceDownloadController;
+use App\Http\Controllers\LaporanDesaExportController;
 use App\Http\Controllers\ReportExportController;
 use App\Livewire\Accounting\ManualJournal;
 use App\Livewire\Accounting\Transactions\Index as TransactionsIndex;
@@ -22,7 +23,11 @@ use App\Livewire\MasterData\Parties;
 use App\Livewire\MasterData\Products;
 use App\Livewire\MasterData\Units;
 use App\Livewire\OpeningBalance\Index as OpeningBalanceIndex;
+use App\Livewire\Oversight\Activity as OversightActivity;
+use App\Livewire\Oversight\Evidence as OversightEvidence;
+use App\Livewire\Period\Index as PeriodIndex;
 use App\Livewire\Reports\Index as ReportsIndex;
+use App\Livewire\Reports\LaporanDesa as LaporanDesaReport;
 use App\Livewire\Trading\Create as TradingCreate;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +83,17 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Laporan, rekonsiliasi, dan ekspor (PDF/XLSX dari dataset yang sama).
     Route::get('/laporan', ReportsIndex::class)->name('reports.index');
     Route::get('/laporan/ekspor', ReportExportController::class)->name('reports.export');
+
+    // Laporan omzet desa (snapshot: draft→ajukan→setujui→kirim) + ekspor resmi.
+    Route::get('/laporan-desa', LaporanDesaReport::class)->name('reports.laporan-desa');
+    Route::get('/laporan-desa/{laporan}/ekspor', LaporanDesaExportController::class)->name('reports.laporan-desa.export');
+
+    // Periode akuntansi: tutup/buka (carry-forward setelah cutover terkunci).
+    Route::get('/periode', PeriodIndex::class)->name('periods.index');
+
+    // Pengawasan: histori aktivitas (audit) dan register bukti transaksi.
+    Route::get('/pengawasan/aktivitas', OversightActivity::class)->name('oversight.activity');
+    Route::get('/pengawasan/bukti', OversightEvidence::class)->name('oversight.evidence');
 
     // Unduh bukti transaksi (disk private, attachment).
     Route::get('/bukti/{bukti}/download', EvidenceDownloadController::class)->name('evidence.download');

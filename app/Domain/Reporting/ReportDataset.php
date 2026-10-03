@@ -2,6 +2,8 @@
 
 namespace App\Domain\Reporting;
 
+use App\Enums\LaporanDesaStatus;
+use App\Models\LaporanDesa;
 use App\Models\UnitUsaha;
 use Illuminate\Support\Carbon;
 
@@ -61,6 +63,38 @@ class ReportDataset
             'buku-besar' => $this->bukuBesar($from, $to, $unitId),
             default => ['summary' => []],
         });
+    }
+
+    /**
+     * Dataset resmi dari snapshot laporan_desa tersimpan (bukan live query).
+     * Nilai mengikuti kolom snapshot, bukan ReportService saat ekspor.
+     */
+    public function fromLaporanDesa(LaporanDesa $laporan): array
+    {
+        $periode = $laporan->periode;
+        $resmi = in_array($laporan->status, [LaporanDesaStatus::Disetujui, LaporanDesaStatus::Dikirim, LaporanDesaStatus::Diterima], true);
+        $statusLabel = $resmi
+            ? 'RESMI — '.strtoupper($laporan->status->value).' v'.$laporan->version
+            : 'DRAFT v'.$laporan->version.' — belum disahkan';
+
+        return [
+            'type' => 'omzet-desa',
+            'title' => 'Laporan Omzet Desa '.$laporan->nomor_laporan,
+            'from' => $periode->tanggal_mulai->toDateString(),
+            'to' => $periode->tanggal_selesai->toDateString(),
+            'periode' => $periode->tanggal_mulai->format('d/m/Y').' – '.$periode->tanggal_selesai->format('d/m/Y'),
+            'unit' => 'Konsolidasi (semua unit)',
+            'generated_at' => optional($laporan->generated_at)->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i'),
+            'status_label' => $statusLabel,
+            'sumber' => 'Snapshot laporan_desa v'.$laporan->version.' (hash '.substr((string) $laporan->snapshot_hash, 0, 12).'…)',
+            'summary' => [
+                ['label' => 'Omzet dagang (penjualan bersih)', 'value' => (string) $laporan->omzet_dagang],
+                ['label' => 'Pendapatan kredit (bunga + denda)', 'value' => (string) $laporan->pendapatan_kredit],
+                ['label' => 'Pendapatan lain', 'value' => (string) $laporan->pendapatan_lain],
+                ['label' => 'TOTAL OMZET DESA', 'value' => (string) $laporan->total_omzet],
+            ],
+            'detail' => null,
+        ];
     }
 
     private function labaRugi(string $from, string $to, ?int $unitId): array

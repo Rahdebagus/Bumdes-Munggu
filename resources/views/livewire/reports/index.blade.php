@@ -108,7 +108,7 @@
                             @if ($c['match'])
                                 <x-ui.badge color="emerald">OK</x-ui.badge>
                             @else
-                                <x-ui.badge color="rose">{{ $c['severity'] }}</x-ui.badge>
+                                <x-ui.badge color="red">{{ $c['severity'] }}</x-ui.badge>
                             @endif
                         </td>
                     </tr>

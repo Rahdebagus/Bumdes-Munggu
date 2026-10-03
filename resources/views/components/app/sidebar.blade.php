@@ -29,9 +29,9 @@
         ],
         'Akuntansi' => [
             ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal'],
-            ['label' => 'Jurnal'],
+            ['label' => 'Jurnal', 'route' => 'transactions.index'],
             ['label' => 'Buku Besar', 'route' => 'reports.index', 'params' => ['type' => 'buku-besar']],
-            ['label' => 'Periode Akuntansi'],
+            ['label' => 'Periode Akuntansi', 'route' => 'periods.index'],
         ],
         'Aset' => [
             ['label' => 'Aset Tetap', 'route' => 'assets.index'],
@@ -44,10 +44,12 @@
             ['label' => 'Arus Kas', 'route' => 'reports.index', 'params' => ['type' => 'arus-kas']],
             ['label' => 'Kredit', 'route' => 'reports.index', 'params' => ['type' => 'kredit']],
             ['label' => 'Omzet Desa', 'route' => 'reports.index', 'params' => ['type' => 'omzet-desa']],
+            ['label' => 'Laporan Desa (Snapshot)', 'route' => 'reports.laporan-desa'],
         ],
         'Pengawasan' => [
             ['label' => 'Audit/Rekonsiliasi', 'route' => 'reports.index'],
-            ['label' => 'Bukti Transaksi'], ['label' => 'Histori Aktivitas'],
+            ['label' => 'Bukti Transaksi', 'route' => 'oversight.evidence'],
+            ['label' => 'Histori Aktivitas', 'route' => 'oversight.activity'],
         ],
     ];
 @endphp
