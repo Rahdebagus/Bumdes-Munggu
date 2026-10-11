@@ -39,6 +39,10 @@ use RuntimeException;
  *   Pend. lain : bunga kredit 12.000 + bunga bank 25.000 = 37.000
  *   Beban      : gaji 500.000 + transport 100.000 + kantor 50.000 + susut 100.000 = 750.000
  *   Pajak usaha: 50.000  → Laba bersih Januari 637.000
+ *
+ * Akun demo (password: demo12345) — hanya non-produksi:
+ *   admin.demo@bumdes-munggu.test    (admin)
+ *   pimpinan.demo@bumdes-munggu.test (pimpinan, untuk menguji persetujuan)
  */
 class DemoSeeder extends Seeder
 {
@@ -66,13 +70,16 @@ class DemoSeeder extends Seeder
 
         $this->dagang = UnitUsaha::where('kode_unit', 'UNIT-DAGANG')->firstOrFail();
         $this->kredit = UnitUsaha::where('kode_unit', 'UNIT-KREDIT')->firstOrFail();
-        $this->actor = User::where('role', 'admin')->first() ?? User::create([
-            'nama' => 'Ayu Senja',
-            'email' => 'admin.demo@bumdes-munggu.test',
-            'role' => 'admin',
-            'status' => 'aktif',
-            'password' => bcrypt('demo12345'),
-        ]);
+        // Akun demo (hanya non-produksi). Admin jadi actor posting; pimpinan untuk
+        // menguji alur persetujuan (Stok Opname, Laporan Omzet Desa).
+        $this->actor = User::firstOrCreate(
+            ['email' => 'admin.demo@bumdes-munggu.test'],
+            ['nama' => 'Ayu Senja', 'role' => 'admin', 'status' => 'aktif', 'password' => bcrypt('demo12345')],
+        );
+        User::firstOrCreate(
+            ['email' => 'pimpinan.demo@bumdes-munggu.test'],
+            ['nama' => 'I Wayan Sukada', 'role' => 'pimpinan', 'status' => 'aktif', 'password' => bcrypt('demo12345')],
+        );
 
         $this->seedMaster();
         $this->seedPeriode();

@@ -17,6 +17,10 @@ class DemoSeederTest extends TestCase
     {
         $this->seed(DemoSeeder::class);
 
+        // Akun demo admin & pimpinan tersedia untuk login/uji persetujuan.
+        $this->assertDatabaseHas('users', ['email' => 'admin.demo@bumdes-munggu.test', 'role' => 'admin', 'status' => 'aktif']);
+        $this->assertDatabaseHas('users', ['email' => 'pimpinan.demo@bumdes-munggu.test', 'role' => 'pimpinan', 'status' => 'aktif']);
+
         $stmt = app(StatementService::class);
         $from = '2026-01-01';
         $to = '2026-01-31';
