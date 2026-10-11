@@ -85,7 +85,7 @@
                         </div>
 
                         <div class="mt-3 flex items-center gap-3">
-                            <x-ui.button wire:click="commit" @if($preview['has_errors']) disabled @endif>
+                            <x-ui.button wire:click="commit" :disabled="$preview['has_errors']">
                                 Commit {{ $preview['row_count'] }} baris
                             </x-ui.button>
                             @if ($preview['has_errors'])
@@ -115,7 +115,7 @@
                 @if ($locked)
                     <x-ui.badge color="blue">Terkunci {{ $periode->opening_locked_at?->format('d M Y H:i') }}</x-ui.badge>
                 @elseif (auth()->user()->isAdmin())
-                    <x-ui.button wire:click="lock" @if(! $recon['ok']) disabled @endif>Kunci Saldo Awal</x-ui.button>
+                    <x-ui.button wire:click="lock" :disabled="! $recon['ok']">Kunci Saldo Awal</x-ui.button>
                 @endif
             </div>
             @error('lock') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror

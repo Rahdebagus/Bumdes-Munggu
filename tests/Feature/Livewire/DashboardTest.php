@@ -19,7 +19,7 @@ class DashboardTest extends TestCase
         Livewire::actingAs($admin)
             ->test(Index::class)
             ->assertOk()
-            ->assertSee('Saldo Kas & Bank');
+            ->assertSee('Saldo Kas dan Bank');
     }
 
     public function test_dashboard_renders_for_pimpinan(): void

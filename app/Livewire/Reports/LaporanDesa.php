@@ -21,6 +21,14 @@ class LaporanDesa extends Component
     #[Url]
     public ?int $periodeId = null;
 
+    public ?int $deliverId = null;
+
+    public string $deliverKirim = '';
+
+    public string $deliverTerima = '';
+
+    public string $deliverBukti = '';
+
     public function mount(): void
     {
         $this->periodeId ??= PeriodeAkuntansi::whereNotNull('opening_locked_at')
@@ -76,6 +84,41 @@ class LaporanDesa extends Component
     {
         $this->authorize('perform-admin-mutation');
         $this->run(fn () => app(LaporanDesaService::class)->revise(LaporanDesaModel::findOrFail($id), auth()->user()), 'Versi revisi dibuat.');
+    }
+
+    /** Buka panel catat pengiriman untuk laporan yang sudah disetujui. */
+    public function startDelivery(int $id): void
+    {
+        $this->authorize('perform-admin-mutation');
+        $l = LaporanDesaModel::findOrFail($id);
+        $this->deliverId = $id;
+        $this->deliverKirim = $l->tanggal_dikirim?->toDateString() ?? now()->toDateString();
+        $this->deliverTerima = $l->tanggal_diterima?->toDateString() ?? '';
+        $this->deliverBukti = (string) ($l->bukti_penerimaan ?? '');
+    }
+
+    /** Catat tanggal kirim/terima + bukti penerimaan (tanpa mengubah nominal). */
+    public function recordDelivery(): void
+    {
+        $this->authorize('perform-admin-mutation');
+        $this->validate([
+            'deliverKirim' => ['nullable', 'date'],
+            'deliverTerima' => ['nullable', 'date', 'after_or_equal:deliverKirim'],
+            'deliverBukti' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $this->run(function () {
+            app(LaporanDesaService::class)->recordDelivery(
+                LaporanDesaModel::findOrFail($this->deliverId),
+                auth()->user(),
+                [
+                    'tanggal_dikirim' => $this->deliverKirim ?: null,
+                    'tanggal_diterima' => $this->deliverTerima ?: null,
+                    'bukti_penerimaan' => $this->deliverBukti ?: null,
+                ],
+            );
+            $this->deliverId = null;
+        }, 'Status pengiriman laporan dicatat.');
     }
 
     public function render()

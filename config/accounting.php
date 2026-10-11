@@ -50,10 +50,11 @@ return [
         'perolehan_aset' => ['label' => 'Perolehan Aset', 'arah' => 'keluar', 'lawan' => ['fixed_asset']],
     ],
 
-    // Kelompok laporan untuk akun (report_group).
+    // Kelompok laporan untuk akun (report_group). 'beban_pajak' = pajak usaha
+    // (ditampilkan setelah laba sebelum pajak), tetap ber-jenis 'beban'.
     'report_groups' => [
         'aset_lancar', 'aset_tetap', 'kewajiban', 'ekuitas',
-        'pendapatan', 'pendapatan_lain', 'hpp', 'beban',
+        'pendapatan', 'pendapatan_lain', 'hpp', 'beban', 'beban_pajak',
     ],
 
     // Kelompok arus kas (transaksi_detail.kelompok_arus_kas).

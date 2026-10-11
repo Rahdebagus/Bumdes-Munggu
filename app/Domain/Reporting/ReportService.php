@@ -52,6 +52,77 @@ class ReportService
         return $rows->map(fn ($v) => Decimal::of((string) $v))->all();
     }
 
+    /**
+     * Net (debit − kredit) per akun_id = jurnal terposting [from,to] (+ opening
+     * terkunci bila includeOpening). Dipakai laporan rinci per-akun (bukan hanya
+     * system_key). @return array<int, string>
+     */
+    public function accountNet(?string $from, string $to, bool $includeOpening = true, ?int $unitId = null): array
+    {
+        $journal = $this->journalNet($from, $to, $unitId);
+        $opening = $includeOpening ? $this->openingNet($unitId) : [];
+
+        $ids = array_unique(array_merge(array_keys($journal), array_keys($opening)));
+        $out = [];
+        foreach ($ids as $id) {
+            $out[(int) $id] = Decimal::add($journal[$id] ?? '0', $opening[$id] ?? '0');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Σ net(debit − kredit) seluruh akun ber-jenis $jenis (laporan basis-akun:
+     * mencakup akun bernama tanpa system_key). Kontra otomatis benar (tanda net).
+     */
+    private function jenisNet(string $jenis, ?string $from, string $to, bool $includeOpening, ?int $unitId = null): string
+    {
+        $net = $this->accountNet($from, $to, $includeOpening, $unitId);
+        $sum = '0';
+        foreach (Akun::where('jenis_akun', $jenis)->pluck('id') as $id) {
+            $sum = Decimal::add($sum, $net[(int) $id] ?? '0');
+        }
+
+        return $sum;
+    }
+
+    /** Σ saldo natural (positif sesuai saldo normal tiap akun) seluruh akun ber-jenis $jenis. */
+    private function jenisNatural(string $jenis, ?string $from, string $to, bool $includeOpening, ?int $unitId = null): string
+    {
+        $net = $this->accountNet($from, $to, $includeOpening, $unitId);
+        $sum = '0';
+        foreach (Akun::where('jenis_akun', $jenis)->get(['id', 'saldo_normal']) as $a) {
+            $n = $net[$a->id] ?? '0';
+            $sum = Decimal::add($sum, $a->saldo_normal->value === 'debit' ? $n : Decimal::mul($n, '-1'));
+        }
+
+        return $sum;
+    }
+
+    /**
+     * Mutasi bruto (debit, kredit) jurnal terposting [from,to] seluruh akun
+     * ber-jenis $jenis. @return array{debit: string, kredit: string}
+     */
+    private function jenisMovementGross(string $jenis, string $from, string $to, ?int $unitId = null): array
+    {
+        $ids = Akun::where('jenis_akun', $jenis)->pluck('id')->map(fn ($v) => (int) $v)->all();
+        if ($ids === []) {
+            return ['debit' => '0.00', 'kredit' => '0.00'];
+        }
+
+        $row = TransaksiDetail::query()
+            ->join('transaksi', 'transaksi.id', '=', 'transaksi_detail.transaksi_id')
+            ->whereIn('transaksi_detail.akun_id', $ids)
+            ->whereNotNull('transaksi.posted_at')
+            ->whereDate('transaksi.tanggal', '>=', $from)
+            ->whereDate('transaksi.tanggal', '<=', $to)
+            ->when($unitId, fn ($q) => $q->where('transaksi.unit_usaha_id', $unitId))
+            ->selectRaw('SUM(transaksi_detail.debit) as d, SUM(transaksi_detail.kredit) as k')
+            ->first();
+
+        return ['debit' => Decimal::of((string) ($row->d ?? '0')), 'kredit' => Decimal::of((string) ($row->k ?? '0'))];
+    }
+
     /** Saldo natural per system_key (positif sesuai saldo normal). */
     public function systemKeyBalances(string $asOf, ?int $unitId = null, bool $includeOpening = true, ?string $from = null): array
     {
@@ -72,12 +143,13 @@ class ReportService
 
     public function labaBersih(string $from, string $to, ?int $unitId = null): string
     {
-        // P&L: tanpa opening (cutover awal tahun → opening P&L 0).
-        $b = $this->systemKeyBalances($to, $unitId, includeOpening: false, from: $from);
-        $pendapatan = Decimal::add(Decimal::add($b['sales'] ?? '0', $b['interest_income'] ?? '0'),
-            Decimal::add($b['penalty_income'] ?? '0', $b['inventory_gain'] ?? '0'));
-        $beban = Decimal::add(Decimal::add($b['cogs'] ?? '0', $b['operating_expense'] ?? '0'),
-            Decimal::add($b['depreciation_expense'] ?? '0', $b['inventory_loss'] ?? '0'));
+        // P&L basis-akun (jenis), tanpa opening: Σ pendapatan − (Σ hpp + Σ beban).
+        // Mencakup akun bernama tanpa system_key (bunga bank, beban rinci, pajak).
+        $pendapatan = $this->jenisNatural('pendapatan', $from, $to, false, $unitId);
+        $beban = Decimal::add(
+            $this->jenisNatural('hpp', $from, $to, false, $unitId),
+            $this->jenisNatural('beban', $from, $to, false, $unitId),
+        );
 
         return Decimal::sub($pendapatan, $beban);
     }
@@ -117,12 +189,11 @@ class ReportService
         $asetTetapNeto = Decimal::sub($b['fixed_asset'] ?? '0', $akumulasi);
         $laba = $this->labaBersih($cutoverFrom, $asOf, $unitId);
 
-        $aset = Decimal::add(
-            Decimal::add(Decimal::add($kas, $b['trade_receivable'] ?? '0'), Decimal::add($b['loan_receivable'] ?? '0', $b['inventory'] ?? '0')),
-            Decimal::add($asetTetapNeto, Decimal::add($b['tax_input'] ?? '0', '0'))
-        );
-        $kewajiban = Decimal::add($b['trade_payable'] ?? '0', $b['tax_output'] ?? '0');
-        $modal = Decimal::add($b['capital'] ?? '0', $b['retained_earnings'] ?? '0');
+        // Total berbasis akun (jenis) → mencakup akun bernama tanpa system_key
+        // (dana-dana ekuitas, dsb). Kontra (akumulasi penyusutan) otomatis benar.
+        $aset = $this->jenisNet('aset', null, $asOf, true, $unitId);
+        $kewajiban = Decimal::mul($this->jenisNet('kewajiban', null, $asOf, true, $unitId), '-1');
+        $modal = Decimal::mul($this->jenisNet('modal', null, $asOf, true, $unitId), '-1');
         $ekuitas = Decimal::add($modal, $laba);
 
         return [
@@ -175,6 +246,33 @@ class ReportService
             'kas_awal' => $kasAwal,
             'kas_akhir' => $kasAkhir,
         ];
+    }
+
+    /**
+     * Arus kas bruto pada akun kas/bank untuk [from,to]: masuk = Σ debit,
+     * keluar = Σ kredit (posted). Rekonsiliasi dashboard: saldo awal + masuk −
+     * keluar = saldo akhir. Konsisten dengan arusKas (arus_bersih = masuk − keluar).
+     *
+     * @return array{masuk: string, keluar: string}
+     */
+    public function cashGrossFlow(string $from, string $to, ?int $unitId = null): array
+    {
+        $cashIds = $this->cashAkunIds();
+        if ($cashIds === []) {
+            return ['masuk' => '0.00', 'keluar' => '0.00'];
+        }
+
+        $row = TransaksiDetail::query()
+            ->join('transaksi', 'transaksi.id', '=', 'transaksi_detail.transaksi_id')
+            ->whereIn('transaksi_detail.akun_id', $cashIds)
+            ->whereNotNull('transaksi.posted_at')
+            ->whereDate('transaksi.tanggal', '>=', $from)
+            ->whereDate('transaksi.tanggal', '<=', $to)
+            ->when($unitId, fn ($q) => $q->where('transaksi.unit_usaha_id', $unitId))
+            ->selectRaw('SUM(transaksi_detail.debit) as d, SUM(transaksi_detail.kredit) as k')
+            ->first();
+
+        return ['masuk' => Decimal::of((string) ($row->d ?? '0')), 'keluar' => Decimal::of((string) ($row->k ?? '0'))];
     }
 
     private function cashAkunIds(): array
@@ -294,14 +392,13 @@ class ReportService
      */
     public function perubahanModal(string $from, string $to, ?int $unitId = null, string $cutoverFrom = '2026-01-01'): array
     {
-        $modalKeys = ['capital', 'retained_earnings'];
-        $mv = $this->keyMovement($modalKeys, $from, $to, $unitId);
+        // Basis-akun (jenis=modal): mencakup seluruh dana ekuitas bernama.
+        $mv = $this->jenisMovementGross('modal', $from, $to, $unitId);
         $penambahan = $mv['kredit'];
         $pengurangan = $mv['debit'];
         $netChange = Decimal::sub($penambahan, $pengurangan);
 
-        $b = $this->systemKeyBalances($to, $unitId);
-        $modalAkhirAkun = Decimal::add($b['capital'] ?? '0', $b['retained_earnings'] ?? '0');
+        $modalAkhirAkun = Decimal::mul($this->jenisNet('modal', null, $to, true, $unitId), '-1');
         $modalAwalAkun = Decimal::sub($modalAkhirAkun, $netChange);
 
         $sebelum = Carbon::parse($from)->subDay()->toDateString();

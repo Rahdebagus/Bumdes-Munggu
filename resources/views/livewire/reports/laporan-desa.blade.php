@@ -59,6 +59,7 @@
                                     @endif
                                     @if (in_array($l->status->value, ['disetujui', 'dikirim', 'diterima']))
                                         <x-ui.button variant="secondary" wire:click="revise({{ $l->id }})">Revisi</x-ui.button>
+                                        <x-ui.button variant="secondary" wire:click="startDelivery({{ $l->id }})">Kirim/Terima</x-ui.button>
                                     @endif
                                 @endcan
                                 @can('approve-laporan')
@@ -79,4 +80,31 @@
             </tbody>
         </table>
     </x-ui.card>
+
+    @if ($deliverId)
+        <x-ui.card title="Catat Pengiriman ke Desa" subtitle="Pencatatan manual; tidak mengubah nominal laporan">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">Tanggal dikirim</span>
+                    <input type="date" wire:model="deliverKirim" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
+                    @error('deliverKirim')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </label>
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">Tanggal diterima</span>
+                    <input type="date" wire:model="deliverTerima" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
+                    @error('deliverTerima')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </label>
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">No./ket. bukti penerimaan</span>
+                    <input type="text" wire:model="deliverBukti" class="mt-1 w-full rounded-lg border-slate-300 text-sm" placeholder="mis. Tanda terima Sekdes">
+                    @error('deliverBukti')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </label>
+            </div>
+            <div class="mt-3 flex gap-2">
+                <x-ui.button wire:click="recordDelivery">Simpan</x-ui.button>
+                <x-ui.button variant="secondary" wire:click="$set('deliverId', null)">Batal</x-ui.button>
+            </div>
+            <p class="mt-2 text-xs text-slate-400">Isi tanggal kirim → status menjadi <span class="font-medium">dikirim</span>; isi tanggal diterima → status <span class="font-medium">diterima</span>.</p>
+        </x-ui.card>
+    @endif
 </div>

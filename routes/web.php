@@ -9,15 +9,19 @@ use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
 use App\Livewire\Cash\Create as CashCreate;
 use App\Livewire\Dashboard\Index as Dashboard;
 use App\Livewire\FixedAssets\Create as AssetCreate;
+use App\Livewire\FixedAssets\Depreciation as AssetDepreciation;
 use App\Livewire\FixedAssets\Index as AssetsIndex;
 use App\Livewire\FixedAssets\Show as AssetShow;
 use App\Livewire\Inventory\Stock as StockIndex;
 use App\Livewire\Inventory\Stocktakes\Create as StocktakeCreate;
 use App\Livewire\Inventory\Stocktakes\Index as StocktakesIndex;
 use App\Livewire\Inventory\Stocktakes\Show as StocktakeShow;
+use App\Livewire\Lending\Borrowers as BorrowersIndex;
 use App\Livewire\Lending\Loans\Create as LoanCreate;
 use App\Livewire\Lending\Loans\Index as LoansIndex;
 use App\Livewire\Lending\Loans\Show as LoanShow;
+use App\Livewire\Lending\Payments as PaymentsIndex;
+use App\Livewire\Lending\Schedules as SchedulesIndex;
 use App\Livewire\MasterData\Accounts;
 use App\Livewire\MasterData\Parties;
 use App\Livewire\MasterData\Products;
@@ -62,9 +66,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/transaksi', TransactionsIndex::class)->name('transactions.index');
     Route::get('/transaksi/{transaksi}', TransactionsShow::class)->name('transactions.show');
 
-    // Usaha kredit: pinjaman, jadwal, pembayaran angsuran.
+    // Usaha kredit: peminjam, pinjaman, jadwal, pembayaran angsuran.
+    Route::get('/peminjam', BorrowersIndex::class)->name('borrowers.index');
     Route::get('/pinjaman', LoansIndex::class)->name('loans.index');
     Route::get('/pinjaman/baru', LoanCreate::class)->name('loans.create');
+    Route::get('/angsuran/jadwal', SchedulesIndex::class)->name('schedules.index');
+    Route::get('/angsuran/pembayaran', PaymentsIndex::class)->name('payments.index');
     Route::get('/pinjaman/{pinjaman}', LoanShow::class)->name('loans.show');
 
     // Persediaan + kartu stok.
@@ -78,6 +85,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Aset tetap + penyusutan.
     Route::get('/aset', AssetsIndex::class)->name('assets.index');
     Route::get('/aset/baru', AssetCreate::class)->name('assets.create');
+    Route::get('/penyusutan', AssetDepreciation::class)->name('depreciation.index');
     Route::get('/aset/{aset}', AssetShow::class)->name('assets.show');
 
     // Laporan, rekonsiliasi, dan ekspor (PDF/XLSX dari dataset yang sama).

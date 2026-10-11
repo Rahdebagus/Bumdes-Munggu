@@ -109,4 +109,24 @@ class LaporanDesaUiTest extends TestCase
         $response->assertOk();
         $response->assertDownload('omzet-desa_2026-01_semua-unit.pdf');
     }
+
+    public function test_catat_pengiriman_ke_desa(): void
+    {
+        $laporan = app(LaporanDesaService::class)->generate($this->periode, $this->admin);
+        app(LaporanDesaService::class)->submit($laporan, $this->admin);
+        app(LaporanDesaService::class)->approve($laporan->fresh(), $this->pimpinan);
+
+        Livewire::actingAs($this->admin)->test(LaporanDesa::class, ['periodeId' => $this->periode->id])
+            ->call('startDelivery', $laporan->id)
+            ->set('deliverKirim', '2026-02-01')
+            ->set('deliverTerima', '2026-02-03')
+            ->set('deliverBukti', 'Tanda terima Sekdes')
+            ->call('recordDelivery')
+            ->assertHasNoErrors();
+
+        $fresh = $laporan->fresh();
+        $this->assertSame(LaporanDesaStatus::Diterima, $fresh->status);
+        $this->assertSame('2026-02-01', $fresh->tanggal_dikirim->toDateString());
+        $this->assertSame('Tanda terima Sekdes', $fresh->bukti_penerimaan);
+    }
 }

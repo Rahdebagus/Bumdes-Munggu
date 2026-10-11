@@ -24,7 +24,7 @@ class ReportDataset
         'buku-besar' => 'Buku Besar',
     ];
 
-    public function __construct(private ReportService $reports) {}
+    public function __construct(private ReportService $reports, private StatementService $statements) {}
 
     /**
      * @param  array{from: string, to: string, asOf?: string, unitId?: ?int, cutoverFrom?: string}  $filters
@@ -54,7 +54,7 @@ class ReportDataset
         ];
 
         return array_merge($base, match ($type) {
-            'laba-rugi' => $this->labaRugi($from, $to, $unitId),
+            'laba-rugi' => $this->labaRugi($from, $to, $unitId, $cutover),
             'neraca' => $this->neraca($asOf, $unitId, $cutover),
             'arus-kas' => $this->arusKas($from, $to, $unitId),
             'perubahan-modal' => $this->perubahanModal($from, $to, $unitId, $cutover),
@@ -97,42 +97,105 @@ class ReportDataset
         ];
     }
 
-    private function labaRugi(string $from, string $to, ?int $unitId): array
+    private function labaRugi(string $from, string $to, ?int $unitId, string $cutover): array
     {
         $r = $this->reports->labaRugi($from, $to, $unitId);
+        $d = $this->statements->labaRugi($from, $to, $unitId, $cutover);
 
-        return ['summary' => [
-            ['label' => 'Penjualan bersih', 'value' => $r['penjualan_bersih']],
-            ['label' => 'Harga pokok penjualan', 'value' => $r['hpp']],
-            ['label' => 'Laba kotor', 'value' => $r['laba_kotor']],
-            ['label' => 'Pendapatan kredit (bunga + denda)', 'value' => $r['pendapatan_kredit']],
-            ['label' => 'Pendapatan lain', 'value' => $r['pendapatan_lain']],
-            ['label' => 'Beban operasional', 'value' => $r['beban_operasional']],
-            ['label' => 'Beban penyusutan', 'value' => $r['penyusutan']],
-            ['label' => 'Beban selisih persediaan', 'value' => $r['beban_selisih_persediaan']],
-            ['label' => 'Laba bersih', 'value' => $r['laba_bersih']],
-        ]];
+        $rows = [];
+        $rows[] = [['text' => 'PENDAPATAN'], ['text' => '']];
+        foreach ($d['pendapatan']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Harga Pokok Penjualan'], ['text' => '']];
+        $rows[] = [['text' => '   Persediaan Awal'], ['num' => $d['hpp']['persediaan_awal']]];
+        $rows[] = [['text' => '   Pembelian Bersih'], ['num' => $d['hpp']['pembelian_bersih']]];
+        $rows[] = [['text' => '   Barang Tersedia Dijual'], ['num' => $d['hpp']['barang_tersedia']]];
+        $rows[] = [['text' => '   Persediaan Akhir'], ['num' => $d['hpp']['persediaan_akhir']]];
+        $rows[] = [['text' => 'Harga Pokok Penjualan'], ['num' => $d['hpp']['hpp']]];
+        $rows[] = [['text' => 'Laba Kotor Penjualan'], ['num' => $d['laba_kotor']]];
+        $rows[] = [['text' => 'PENDAPATAN LAIN'], ['text' => '']];
+        foreach ($d['pendapatan_lain']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Pendapatan Lain'], ['num' => $d['pendapatan_lain']['total']]];
+        $rows[] = [['text' => 'Laba Setelah Pendapatan Lain'], ['num' => $d['laba_setelah_lain']]];
+        $rows[] = [['text' => 'BEBAN'], ['text' => '']];
+        foreach ($d['beban']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Beban'], ['num' => $d['beban']['total']]];
+        $rows[] = [['text' => 'Laba Sebelum Pajak'], ['num' => $d['laba_sebelum_pajak']]];
+        foreach ($d['pajak']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Laba Bersih'], ['num' => $d['laba_bersih']]];
+        $rows[] = [['text' => 'Laba Kumulatif Berjalan'], ['num' => $d['laba_kumulatif']]];
+
+        return [
+            'summary' => [
+                ['label' => 'Penjualan bersih', 'value' => $r['penjualan_bersih']],
+                ['label' => 'Harga pokok penjualan', 'value' => $r['hpp']],
+                ['label' => 'Laba kotor', 'value' => $r['laba_kotor']],
+                ['label' => 'Pendapatan kredit (bunga + denda)', 'value' => $r['pendapatan_kredit']],
+                ['label' => 'Pendapatan lain', 'value' => $r['pendapatan_lain']],
+                ['label' => 'Beban operasional', 'value' => $r['beban_operasional']],
+                ['label' => 'Beban penyusutan', 'value' => $r['penyusutan']],
+                ['label' => 'Beban selisih persediaan', 'value' => $r['beban_selisih_persediaan']],
+                ['label' => 'Laba bersih', 'value' => $r['laba_bersih']],
+            ],
+            'detail' => ['headers' => ['Keterangan', 'Nilai (Rp)'], 'rows' => $rows],
+        ];
     }
 
     private function neraca(string $asOf, ?int $unitId, string $cutover): array
     {
         $r = $this->reports->neraca($asOf, $unitId, $cutover);
+        $d = $this->statements->neraca($asOf, $unitId, $cutover);
 
-        return ['summary' => [
-            ['label' => 'Kas & bank', 'value' => $r['kas_bank']],
-            ['label' => 'Piutang usaha', 'value' => $r['piutang_usaha']],
-            ['label' => 'Piutang pinjaman', 'value' => $r['piutang_pinjaman']],
-            ['label' => 'Persediaan', 'value' => $r['persediaan']],
-            ['label' => 'Aset tetap bruto', 'value' => $r['aset_tetap_bruto']],
-            ['label' => 'Akumulasi penyusutan', 'value' => $r['akumulasi_penyusutan']],
-            ['label' => 'Aset tetap neto', 'value' => $r['aset_tetap_neto']],
-            ['label' => 'TOTAL ASET', 'value' => $r['total_aset']],
-            ['label' => 'Utang', 'value' => $r['utang']],
-            ['label' => 'Modal', 'value' => $r['modal']],
-            ['label' => 'Laba kumulatif berjalan', 'value' => $r['laba_kumulatif']],
-            ['label' => 'Total ekuitas', 'value' => $r['total_ekuitas']],
-            ['label' => 'TOTAL KEWAJIBAN + EKUITAS', 'value' => $r['total_kewajiban_ekuitas']],
-        ]];
+        $rows = [];
+        $rows[] = [['text' => 'AKTIVA LANCAR'], ['text' => '']];
+        foreach ($d['aktiva_lancar']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Aktiva Lancar'], ['num' => $d['aktiva_lancar']['total']]];
+        $rows[] = [['text' => 'AKTIVA TETAP'], ['text' => '']];
+        foreach ($d['aktiva_tetap']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label'].($x['contra'] ? ' (kontra)' : '')], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Aktiva Tetap Bersih'], ['num' => $d['aktiva_tetap']['net']]];
+        $rows[] = [['text' => 'TOTAL AKTIVA'], ['num' => $d['total_aktiva']]];
+        $rows[] = [['text' => 'KEWAJIBAN'], ['text' => '']];
+        foreach ($d['kewajiban']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Kewajiban'], ['num' => $d['kewajiban']['total']]];
+        $rows[] = [['text' => 'EKUITAS'], ['text' => '']];
+        foreach ($d['ekuitas']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => '   Laba Berjalan'], ['num' => $d['ekuitas']['laba']]];
+        $rows[] = [['text' => 'Total Ekuitas'], ['num' => $d['ekuitas']['total']]];
+        $rows[] = [['text' => 'TOTAL PASIVA (Kewajiban + Ekuitas)'], ['num' => $d['total_pasiva']]];
+
+        return [
+            'summary' => [
+                ['label' => 'Kas & bank', 'value' => $r['kas_bank']],
+                ['label' => 'Piutang usaha', 'value' => $r['piutang_usaha']],
+                ['label' => 'Piutang pinjaman', 'value' => $r['piutang_pinjaman']],
+                ['label' => 'Persediaan', 'value' => $r['persediaan']],
+                ['label' => 'Aset tetap bruto', 'value' => $r['aset_tetap_bruto']],
+                ['label' => 'Akumulasi penyusutan', 'value' => $r['akumulasi_penyusutan']],
+                ['label' => 'Aset tetap neto', 'value' => $r['aset_tetap_neto']],
+                ['label' => 'TOTAL ASET', 'value' => $r['total_aset']],
+                ['label' => 'Utang', 'value' => $r['utang']],
+                ['label' => 'Modal', 'value' => $r['modal']],
+                ['label' => 'Laba kumulatif berjalan', 'value' => $r['laba_kumulatif']],
+                ['label' => 'Total ekuitas', 'value' => $r['total_ekuitas']],
+                ['label' => 'TOTAL KEWAJIBAN + EKUITAS', 'value' => $r['total_kewajiban_ekuitas']],
+            ],
+            'detail' => ['headers' => ['Keterangan', 'Nilai (Rp)'], 'rows' => $rows],
+        ];
     }
 
     private function arusKas(string $from, string $to, ?int $unitId): array
@@ -152,14 +215,28 @@ class ReportDataset
     private function perubahanModal(string $from, string $to, ?int $unitId, string $cutover): array
     {
         $r = $this->reports->perubahanModal($from, $to, $unitId, $cutover);
+        $d = $this->statements->perubahanModal($to, $unitId, $cutover);
 
-        return ['summary' => [
-            ['label' => 'Ekuitas awal', 'value' => $r['ekuitas_awal']],
-            ['label' => 'Penambahan modal', 'value' => $r['penambahan_modal']],
-            ['label' => 'Pengurangan modal', 'value' => $r['pengurangan_modal']],
-            ['label' => 'Laba periode', 'value' => $r['laba_periode']],
-            ['label' => 'Ekuitas akhir', 'value' => $r['ekuitas_akhir']],
-        ]];
+        $rows = [];
+        $rows[] = [['text' => 'MODAL AWAL PER DANA'], ['text' => '']];
+        foreach ($d['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Modal Awal'], ['num' => $d['total_awal']]];
+        $rows[] = [['text' => 'Laba Periode'], ['num' => $d['laba']]];
+        $rows[] = [['text' => 'Bagi Hasil / Penggunaan Dana'], ['num' => $d['perubahan_dana']]];
+        $rows[] = [['text' => 'Modal Akhir'], ['num' => $d['modal_akhir']]];
+
+        return [
+            'summary' => [
+                ['label' => 'Ekuitas awal', 'value' => $r['ekuitas_awal']],
+                ['label' => 'Penambahan modal', 'value' => $r['penambahan_modal']],
+                ['label' => 'Pengurangan modal', 'value' => $r['pengurangan_modal']],
+                ['label' => 'Laba periode', 'value' => $r['laba_periode']],
+                ['label' => 'Ekuitas akhir', 'value' => $r['ekuitas_akhir']],
+            ],
+            'detail' => ['headers' => ['Keterangan', 'Nilai (Rp)'], 'rows' => $rows],
+        ];
     }
 
     private function omzetDesa(string $from, string $to, ?int $unitId): array
