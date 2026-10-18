@@ -41,6 +41,17 @@ Jalankan migrate setelah backup berhasil dan perubahan schema ditinjau. Atomic s
 
 Command bootstrap user/seeder production dijalankan sekali dengan input yang dikonfirmasi, bukan DemoSeeder. Jika MasterDataSeeder menggunakan akun contoh, review mapping sebelum mengaktifkannya pada BUMDes nyata.
 
+Bootstrap data pada release pertama (setelah migrate, sekali saja):
+
+```bash
+# Isi SEED_ADMIN_*/SEED_PIMPINAN_*/SEED_PERIODE_AWAL di shared .env lebih dulu.
+php artisan db:seed --class=ProductionSeeder --force
+```
+
+`ProductionSeeder` memuat master data (unit usaha + chart of accounts ber-system_key), akun login Admin & Pimpinan, dan periode go-live — tanpa satu pun transaksi/pihak/produk contoh. Konfigurasi divalidasi lebih dahulu, sehingga `.env` yang belum lengkap berhenti tanpa meninggalkan database separuh terisi, dan seeder aman dijalankan ulang (akun yang sudah ada tidak diubah). Seeder juga memperingatkan bila menemukan akun demo (`*.demo@...`) — tanda database UAT, bukan produksi.
+
+Segera setelah bootstrap: kosongkan kembali `SEED_ADMIN_PASSWORD` & `SEED_PIMPINAN_PASSWORD` di `.env`, jalankan `php artisan config:clear`, serahkan password awal lewat kanal terpisah, dan minta pengelola meninjau nama unit/penanggung jawab serta chart of accounts sebelum saldo awal dikunci.
+
 ## 3. Worker dan scheduler
 
 Process manager menjalankan `php artisan queue:work --tries=3 --timeout=120` (sesuaikan waktu ekspor dan retry_after agar tidak duplicate job). Scheduler: cron setiap menit `php /path/to/artisan schedule:run`. Posting finansial tidak di-queue; ekspor boleh queue setelah commit dan idempotent.

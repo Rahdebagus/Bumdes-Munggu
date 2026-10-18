@@ -182,6 +182,24 @@ npm run build
 
 `MasterDataSeeder` dan `app:create-user` adalah deliverable tahap implementasi, belum perintah bawaan Laravel. Seeder master hanya unit/kode akun/mapping; DemoSeeder terpisah dan menolak production.
 
+### Bootstrap satu perintah untuk server produksi
+
+Pada server baru, `ProductionSeeder` menggabungkan master data + akun login + periode go-live. Isi variabel `SEED_*` di `.env` (lihat `.env.example`) lebih dulu; seluruh konfigurasi divalidasi lebih dahulu sehingga konfigurasi yang belum lengkap berhenti tanpa menulis apa pun ke database.
+
+```bash
+php artisan migrate --force
+php artisan db:seed --class=ProductionSeeder --force
+```
+
+| Seeder | Isi | Aman di production |
+| --- | --- | --- |
+| `ProductionSeeder` | `MasterDataSeeder` + `UserSeeder` + periode `SEED_PERIODE_AWAL` | ya (bootstrap resmi) |
+| `MasterDataSeeder` | unit usaha + chart of accounts (system_key) | ya |
+| `UserSeeder` | akun Admin & Pimpinan, identitas/password dari `.env` | ya |
+| `DemoSeeder` | transaksi/pihak/produk contoh Januari 2026 | tidak — menolak jalan |
+
+`php artisan db:seed` tanpa `--class` mengikuti environment: `production` → `ProductionSeeder`, selain itu hanya `MasterDataSeeder` (agar pengembang tidak dituntut mengisi password). Semua seeder produksi idempotent: akun login yang sudah ada tidak diubah (password/role/nama) dan periode tidak digandakan. Setelah bootstrap berhasil, **kosongkan** `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lalu `php artisan config:clear` — tidak ada fitur ubah password mandiri, reset dilakukan administrator.
+
 Buat `.env.testing` dengan database `bumdes_munggu_test`. Pastikan tes tidak pernah mengarah ke database production. Jalankan `php artisan view:cache`, `php artisan test`, dan `npm run build`. Pemeriksaan format PHP dapat memakai Pint jika terpasang. Tidak diperlukan script typecheck frontend; gunakan tes komponen Livewire dan browser.
 
 ## 7. Kriteria setup selesai
