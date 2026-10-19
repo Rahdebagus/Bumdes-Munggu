@@ -72,6 +72,23 @@ saldo awal tidak bisa diubah lagi.
 | Dana Pendidikan | | 2.000.000 |
 | **Total** | **30.000.000** | **30.000.000** |
 
+**Template siap pakai** tersedia di `docs/templates/`:
+
+| Berkas | Isi |
+|---|---|
+| `saldo-awal-mulai-cepat.xlsx` / `.csv` | Kas, Bank, Modal saja (30.000.000 seimbang) — tanpa akun kontrol, jadi bisa langsung dikunci |
+| `saldo-awal-template.xlsx` | Kerangka kosong berisi akun-akun umum untuk diisi sendiri |
+
+Angka ditulis polos tanpa pemisah ribuan (`5000000`, bukan `5.000.000`); titik dipakai untuk desimal.
+
+**Bila unggahan lewat browser terhalang**, impor dapat dijalankan langsung di server dengan service yang sama persis:
+
+```bash
+php artisan app:import-opening-balance docs/templates/saldo-awal-mulai-cepat.xlsx --periode=2026-10 --kunci
+```
+
+Tanpa `--kunci` hasilnya tersimpan sebagai draft dan masih bisa diimpor ulang. Perintah menolak tanpa menyimpan apa pun bila ada baris bermasalah atau debit != kredit, dan menolak mengunci bila rincian akun kontrol belum cocok.
+
 ### 4. Transaksi Harian (menu: Transaksi)
 Alur: **buat draft → posting**. Draft belum berpengaruh; angka resmi muncul setelah
 posting. Posting bersifat *immutable* — koreksi dilakukan dengan *reverse*.

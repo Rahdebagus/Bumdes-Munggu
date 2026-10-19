@@ -1,0 +1,6 @@
+kode_akun,unit_kode,saldo_debit,saldo_kredit,keterangan
+1-1010,UNIT-DAGANG,5000000,0,Kas tunai unit dagang
+1-1010,UNIT-KREDIT,5000000,0,Kas tunai unit simpan pinjam
+1-1020,UNIT-DAGANG,20000000,0,Saldo rekening bank BUMDes
+3-3010,UNIT-DAGANG,0,25000000,Modal penyertaan dana desa - unit dagang
+3-3010,UNIT-KREDIT,0,5000000,Modal penyertaan dana desa - unit simpan pinjam
