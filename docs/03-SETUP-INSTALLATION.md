@@ -199,7 +199,7 @@ php artisan db:seed --class=ProductionSeeder --force
 | `UserSeeder` | akun Admin & Pimpinan, identitas/password dari `.env` | ya |
 | `DemoSeeder` | transaksi/pihak/produk contoh Januari 2026 | tidak — menolak jalan |
 
-`php artisan db:seed` tanpa `--class` mengikuti environment: `production` → `ProductionSeeder`, selain itu hanya `MasterDataSeeder` (agar pengembang tidak dituntut mengisi password). Semua seeder produksi idempotent: akun login yang sudah ada tidak diubah (password/role/nama) dan periode tidak digandakan. Setelah bootstrap berhasil, **kosongkan** `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lalu `php artisan config:clear` — tidak ada fitur ubah password mandiri, reset dilakukan administrator.
+`php artisan db:seed` tanpa `--class` (juga `migrate:fresh --seed`) menjalankan `ProduksiBumdesSeeder`: master data, akun login, dan seluruh data BUMDes per 30 Juni 2026 sebagai saldo awal Juli 2026 yang terkunci. Isi `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lebih dulu; untuk master data saja pakai `--class=MasterDataSeeder`. Semua seeder produksi idempotent: akun login yang sudah ada tidak diubah (password/role/nama) dan periode tidak digandakan. Setelah bootstrap berhasil, **kosongkan** `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lalu `php artisan config:clear` — tidak ada fitur ubah password mandiri, reset dilakukan administrator.
 
 Buat `.env.testing` dengan database `bumdes_munggu_test`. Pastikan tes tidak pernah mengarah ke database production. Jalankan `php artisan view:cache`, `php artisan test`, dan `npm run build`. Pemeriksaan format PHP dapat memakai Pint jika terpasang. Tidak diperlukan script typecheck frontend; gunakan tes komponen Livewire dan browser.
 
