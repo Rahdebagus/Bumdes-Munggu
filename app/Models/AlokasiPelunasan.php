@@ -21,6 +21,8 @@ class AlokasiPelunasan extends Model
     {
         return [
             'nominal' => 'decimal:2',
+            'bunga' => 'decimal:2',
+            'denda' => 'decimal:2',
             'created_at' => 'datetime',
         ];
     }

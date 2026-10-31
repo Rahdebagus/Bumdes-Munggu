@@ -55,6 +55,7 @@
             </div>
         </div>
 
+        @can('perform-admin-mutation')
         <div x-data="{ open: false }" class="relative">
             <button type="button" @click="open = ! open" :aria-expanded="open" aria-haspopup="true"
                     class="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
@@ -69,6 +70,7 @@
                 <a href="{{ route('cash.create') }}" wire:navigate class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50" role="menuitem">Pemasukan / Pengeluaran</a>
             </div>
         </div>
+        @endcan
     </div>
 
     {{-- KPI --}}

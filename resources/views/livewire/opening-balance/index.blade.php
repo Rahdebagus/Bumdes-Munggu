@@ -1,4 +1,48 @@
 <div class="space-y-6">
+    {{-- Petunjuk pengisian + unduh format --}}
+    <div x-data="{ buka: true }" class="rounded-xl border border-blue-200 bg-blue-50 text-sm text-blue-950">
+        <button type="button" @click="buka = !buka" class="flex w-full items-center justify-between gap-3 px-5 py-3 text-left">
+            <span class="font-semibold">Petunjuk: cara mengisi saldo awal</span>
+            <span class="text-xs text-blue-700" x-text="buka ? 'Sembunyikan' : 'Tampilkan'"></span>
+        </button>
+        <div x-show="buka" x-collapse class="space-y-4 border-t border-blue-200 px-5 py-4">
+            <p>Saldo awal adalah posisi <strong>neraca</strong> (harta, utang, modal) pada tanggal <strong>cutover</strong> — hari terakhir sebelum mulai mencatat di aplikasi.
+                Ambil angkanya dari Neraca Excel terakhir. Akun pendapatan, HPP dan biaya <strong>tidak</strong> diisi.</p>
+
+            <ol class="list-decimal space-y-1 pl-5">
+                <li>Pilih / buat <strong>periode cutover</strong> di bawah (mis. Januari 2026).</li>
+                <li><strong>Unduh format</strong> lalu isi lembar <code class="rounded bg-white px-1">saldo_awal</code> — satu baris per akun per unit. Daftar kode akun & unit ada di lembar lain pada file yang sama.</li>
+                <li>Unggah file di kartu <strong>Impor Saldo Awal</strong> → <em>Preview</em> → periksa → <em>Simpan</em>.</li>
+                <li>Untuk akun kontrol (Persediaan, Piutang, Utang, Pinjaman, Inventaris) isi <strong>Rincian Akun Kontrol</strong> sampai jumlahnya sama.</li>
+                <li>Bila badge <em>Debit = Kredit</em> dan <em>Rincian kontrol cocok</em> hijau, klik <strong>Kunci Saldo Awal</strong>. Setelah dikunci, transaksi bisa diposting.</li>
+            </ol>
+
+            <div class="overflow-x-auto rounded-lg border border-blue-200 bg-white">
+                <table class="min-w-full text-xs text-slate-700">
+                    <thead class="bg-slate-50 text-left font-semibold text-slate-500">
+                        <tr><th class="px-3 py-2">Kolom</th><th class="px-3 py-2">Isi dengan</th><th class="px-3 py-2">Contoh</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr><td class="px-3 py-1.5 font-mono">kode_akun</td><td class="px-3 py-1.5">Kode akun dari lembar "Daftar Akun" (format <strong>teks</strong>)</td><td class="px-3 py-1.5 font-mono">1.1.01.01</td></tr>
+                        <tr><td class="px-3 py-1.5 font-mono">unit_kode</td><td class="px-3 py-1.5">Kode unit dari lembar "Daftar Unit"; bila tidak dipisah per unit pakai satu unit saja</td><td class="px-3 py-1.5 font-mono">UNIT-DAGANG</td></tr>
+                        <tr><td class="px-3 py-1.5 font-mono">saldo_debit</td><td class="px-3 py-1.5">Akun harta: Kas, Bank, Piutang, Persediaan, Inventaris. Angka polos tanpa titik/Rp</td><td class="px-3 py-1.5 font-mono">10000000</td></tr>
+                        <tr><td class="px-3 py-1.5 font-mono">saldo_kredit</td><td class="px-3 py-1.5">Akun utang, modal, dana-dana, akumulasi penyusutan</td><td class="px-3 py-1.5 font-mono">50000000</td></tr>
+                        <tr><td class="px-3 py-1.5 font-mono">keterangan</td><td class="px-3 py-1.5">Bebas, mis. sumber angka</td><td class="px-3 py-1.5">Rekening koran 31/12</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p><strong>Contoh seimbang:</strong> Kas Tunai 10.000.000 (debit) + Kas di Bank 40.000.000 (debit) = Modal Desa Munggu 50.000.000 (kredit).</p>
+            <p class="rounded-lg bg-amber-50 px-3 py-2 text-amber-900"><strong>Paling mudah untuk mulai:</strong> isi Kas, Bank, Modal &amp; Dana saja. Stok barang dicatat sebagai stok awal produk
+                (<code>php artisan produk:import produk.xlsx --stok-awal=YYYY-MM-DD</code>, otomatis D Persediaan — K Modal). Jangan isi Persediaan di sini <em>dan</em> stok awal produk sekaligus — akan tercatat dua kali.</p>
+
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('opening-balance.template', 'xlsx') }}" class="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 font-medium text-white hover:bg-blue-800">Unduh format Excel (.xlsx)</a>
+                <a href="{{ route('opening-balance.template', 'csv') }}" class="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-4 py-2 font-medium text-blue-800 hover:bg-blue-100">Unduh format CSV</a>
+            </div>
+        </div>
+    </div>
+
     {{-- Pemilihan / pembuatan periode cutover --}}
     <x-ui.card title="Periode Cutover" subtitle="Satu tanggal cutover per implementasi (default demo: awal tahun)">
         <div class="flex flex-wrap items-end gap-4">
@@ -40,6 +84,7 @@
                         <input type="file" wire:model="file" accept=".xlsx,.xls,.csv" class="text-sm">
                         <x-ui.button variant="secondary" wire:click="preview" wire:loading.attr="disabled">Preview</x-ui.button>
                         <div wire:loading wire:target="file" class="text-sm text-slate-400">Mengunggah…</div>
+                        <a href="{{ route('opening-balance.template', 'xlsx') }}" class="ml-auto text-sm font-medium text-blue-700 hover:underline">Belum punya file? Unduh format Excel</a>
                     </div>
                     @error('file') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
                     @error('import') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror

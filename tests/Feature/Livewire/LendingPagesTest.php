@@ -45,8 +45,8 @@ class LendingPagesTest extends TestCase
         $this->peminjam = Pihak::factory()->peminjam()->create(['nama' => 'I Made Demo']);
 
         $rows = [
-            ['kode_akun' => '1-1010', 'unit_kode' => '', 'saldo_debit' => '5000000', 'saldo_kredit' => '0', 'keterangan' => ''],
-            ['kode_akun' => '3-3010', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => '5000000', 'keterangan' => ''],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => '', 'saldo_debit' => '5000000', 'saldo_kredit' => '0', 'keterangan' => ''],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => '5000000', 'keterangan' => ''],
         ];
         (new CommitImport)->handle($periode, (new PreviewImport)->handle($rows), $this->admin);
         app(LockOpeningBalance::class)->handle($periode, $this->admin);

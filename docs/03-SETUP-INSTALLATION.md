@@ -194,6 +194,7 @@ php artisan db:seed --class=ProductionSeeder --force
 | Seeder | Isi | Aman di production |
 | --- | --- | --- |
 | `ProductionSeeder` | `MasterDataSeeder` + `UserSeeder` + periode `SEED_PERIODE_AWAL` | ya (bootstrap resmi) |
+| `ProduksiBumdesSeeder` | `ProductionSeeder` + data nyata neraca 30 Juni 2026 (produk, pelanggan, nasabah, aset, saldo awal Juli 2026 terkunci) | ya — untuk database baru (lihat dokumen14) |
 | `MasterDataSeeder` | unit usaha + chart of accounts (system_key) | ya |
 | `UserSeeder` | akun Admin & Pimpinan, identitas/password dari `.env` | ya |
 | `DemoSeeder` | transaksi/pihak/produk contoh Januari 2026 | tidak — menolak jalan |

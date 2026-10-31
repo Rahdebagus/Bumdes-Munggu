@@ -22,9 +22,19 @@ class ReportDataset
         'omzet-desa' => 'Omzet Desa',
         'kredit' => 'Laporan Kredit',
         'buku-besar' => 'Buku Besar',
+        'jurnal-umum' => 'Jurnal Umum',
+        'neraca-saldo' => 'Neraca Saldo',
+        'buku-kas' => 'Buku Kas',
+        'buku-bank' => 'Buku Bank',
+        'kartu-stok' => 'Laporan Persediaan (Kartu Stok)',
+        'piutang-hutang' => 'Laporan Piutang & Hutang',
     ];
 
-    public function __construct(private ReportService $reports, private StatementService $statements) {}
+    public function __construct(
+        private ReportService $reports,
+        private StatementService $statements,
+        private LedgerReports $ledger,
+    ) {}
 
     /**
      * @param  array{from: string, to: string, asOf?: string, unitId?: ?int, cutoverFrom?: string}  $filters
@@ -61,6 +71,12 @@ class ReportDataset
             'omzet-desa' => $this->omzetDesa($from, $to, $unitId),
             'kredit' => $this->kredit($asOf, $unitId),
             'buku-besar' => $this->bukuBesar($from, $to, $unitId),
+            'jurnal-umum' => $this->jurnalUmum($from, $to, $unitId),
+            'neraca-saldo' => $this->neracaSaldo($from, $to, $unitId),
+            'buku-kas' => $this->bukuKas($from, $to, $unitId, false),
+            'buku-bank' => $this->bukuKas($from, $to, $unitId, true),
+            'kartu-stok' => $this->kartuStok($from, $to, $unitId),
+            'piutang-hutang' => $this->piutangHutang($asOf, $unitId),
             default => ['summary' => []],
         });
     }
@@ -112,6 +128,9 @@ class ReportDataset
         $rows[] = [['text' => '   Pembelian Bersih'], ['num' => $d['hpp']['pembelian_bersih']]];
         $rows[] = [['text' => '   Barang Tersedia Dijual'], ['num' => $d['hpp']['barang_tersedia']]];
         $rows[] = [['text' => '   Persediaan Akhir'], ['num' => $d['hpp']['persediaan_akhir']]];
+        foreach ($d['hpp']['rows'] as $x) {
+            $rows[] = [['text' => '      '.$x['label']], ['num' => $x['value']]];
+        }
         $rows[] = [['text' => 'Harga Pokok Penjualan'], ['num' => $d['hpp']['hpp']]];
         $rows[] = [['text' => 'Laba Kotor Penjualan'], ['num' => $d['laba_kotor']]];
         $rows[] = [['text' => 'PENDAPATAN LAIN'], ['text' => '']];
@@ -120,11 +139,16 @@ class ReportDataset
         }
         $rows[] = [['text' => 'Total Pendapatan Lain'], ['num' => $d['pendapatan_lain']['total']]];
         $rows[] = [['text' => 'Laba Setelah Pendapatan Lain'], ['num' => $d['laba_setelah_lain']]];
-        $rows[] = [['text' => 'BEBAN'], ['text' => '']];
+        $rows[] = [['text' => 'BIAYA OPERASIONAL'], ['text' => '']];
         foreach ($d['beban']['rows'] as $x) {
             $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
         }
-        $rows[] = [['text' => 'Total Beban'], ['num' => $d['beban']['total']]];
+        $rows[] = [['text' => 'Total Biaya Operasional'], ['num' => $d['beban']['total']]];
+        $rows[] = [['text' => 'BIAYA NON OPERASIONAL'], ['text' => '']];
+        foreach ($d['beban_non_operasional']['rows'] as $x) {
+            $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
+        }
+        $rows[] = [['text' => 'Total Biaya Non Operasional'], ['num' => $d['beban_non_operasional']['total']]];
         $rows[] = [['text' => 'Laba Sebelum Pajak'], ['num' => $d['laba_sebelum_pajak']]];
         foreach ($d['pajak']['rows'] as $x) {
             $rows[] = [['text' => '   '.$x['label']], ['num' => $x['value']]];
@@ -305,6 +329,155 @@ class ReportDataset
             ],
             'detail' => [
                 'headers' => ['Tanggal/Akun', 'Nomor', 'Debit', 'Kredit', 'Saldo'],
+                'rows' => $rows,
+            ],
+        ];
+    }
+
+    private function jurnalUmum(string $from, string $to, ?int $unitId): array
+    {
+        $j = $this->ledger->jurnalUmum($from, $to, $unitId);
+        $rows = [];
+        $last = null;
+        foreach ($j['entries'] as $e) {
+            $first = $e['transaksi_id'] !== $last;
+            $last = $e['transaksi_id'];
+            $rows[] = [
+                ['text' => $first ? Carbon::parse($e['tanggal'])->format('d/m/Y') : ''],
+                ['text' => $first ? $e['nomor'] : ''],
+                ['text' => $e['akun']],
+                ['text' => $e['uraian']],
+                ['num' => $e['debit']],
+                ['num' => $e['kredit']],
+            ];
+        }
+
+        return [
+            'summary' => [
+                ['label' => 'Total debet', 'value' => $j['total_debit']],
+                ['label' => 'Total kredit', 'value' => $j['total_kredit']],
+            ],
+            'status_label' => ($j['seimbang'] ? 'SEIMBANG (debet = kredit)' : 'TIDAK SEIMBANG').' — laporan kerja, belum disahkan',
+            'detail' => [
+                'headers' => ['Tanggal', 'No. Bukti', 'Akun', 'Uraian', 'Debet', 'Kredit'],
+                'rows' => $rows,
+                'foot' => [['text' => 'TOTAL'], ['text' => ''], ['text' => ''], ['text' => ''], ['num' => $j['total_debit']], ['num' => $j['total_kredit']]],
+            ],
+        ];
+    }
+
+    private function neracaSaldo(string $from, string $to, ?int $unitId): array
+    {
+        $n = $this->ledger->neracaSaldo($from, $to, $unitId);
+        $rows = array_map(fn ($r) => [
+            ['text' => $r['kode']], ['text' => $r['nama']],
+            ['num' => $r['awal_d']], ['num' => $r['awal_k']],
+            ['num' => $r['mut_d']], ['num' => $r['mut_k']],
+            ['num' => $r['akhir_d']], ['num' => $r['akhir_k']],
+        ], $n['rows']);
+        $t = $n['total'];
+
+        return [
+            'summary' => [
+                ['label' => 'Saldo akhir debet', 'value' => $t['akhir_d']],
+                ['label' => 'Saldo akhir kredit', 'value' => $t['akhir_k']],
+            ],
+            'status_label' => ($n['seimbang'] ? 'SEIMBANG' : 'TIDAK SEIMBANG').' — laporan kerja, belum disahkan',
+            'detail' => [
+                'headers' => ['Kode', 'Akun', 'Saldo Awal D', 'Saldo Awal K', 'Jurnal D', 'Jurnal K', 'Saldo Akhir D', 'Saldo Akhir K'],
+                'rows' => $rows,
+                'foot' => [['text' => 'TOTAL'], ['text' => ''], ['num' => $t['awal_d']], ['num' => $t['awal_k']], ['num' => $t['mut_d']], ['num' => $t['mut_k']], ['num' => $t['akhir_d']], ['num' => $t['akhir_k']]],
+            ],
+        ];
+    }
+
+    private function bukuKas(string $from, string $to, ?int $unitId, bool $bank): array
+    {
+        $b = $this->ledger->bukuKas($from, $to, $unitId, $bank);
+        $rows = [[['text' => ''], ['text' => ''], ['text' => 'Saldo awal'], ['text' => ''], ['text' => ''], ['text' => ''], ['num' => $b['saldo_awal']]]];
+        foreach ($b['entries'] as $e) {
+            $rows[] = [
+                ['text' => Carbon::parse($e['tanggal'])->format('d/m/Y')],
+                ['text' => $e['nomor']],
+                ['text' => $e['uraian']],
+                ['text' => $e['lawan']],
+                ['num' => $e['masuk']],
+                ['num' => $e['keluar']],
+                ['num' => $e['saldo']],
+            ];
+        }
+
+        return [
+            'summary' => [
+                ['label' => 'Saldo awal', 'value' => $b['saldo_awal']],
+                ['label' => $bank ? 'Total masuk bank' : 'Total kas masuk', 'value' => $b['masuk']],
+                ['label' => $bank ? 'Total keluar bank' : 'Total kas keluar', 'value' => $b['keluar']],
+                ['label' => 'Saldo akhir', 'value' => $b['saldo_akhir']],
+            ],
+            'detail' => [
+                'headers' => ['Tanggal', 'No. Bukti', 'Uraian', 'Akun Lawan', 'Masuk', 'Keluar', 'Saldo'],
+                'rows' => $rows,
+                'foot' => [['text' => 'TOTAL'], ['text' => ''], ['text' => ''], ['text' => ''], ['num' => $b['masuk']], ['num' => $b['keluar']], ['num' => $b['saldo_akhir']]],
+            ],
+        ];
+    }
+
+    private function kartuStok(string $from, string $to, ?int $unitId): array
+    {
+        $k = $this->ledger->kartuStok($from, $to, $unitId);
+        $q = fn ($v) => rtrim(rtrim((string) $v, '0'), '.') ?: '0';
+        $rows = array_map(fn ($r) => [
+            ['text' => $r['kode']], ['text' => $r['nama']], ['text' => $r['satuan']],
+            ['text' => $q($r['qty_awal'])], ['num' => $r['nilai_awal']],
+            ['text' => $q($r['qty_masuk'])], ['num' => $r['nilai_masuk']],
+            ['text' => $q($r['qty_keluar'])], ['num' => $r['nilai_keluar']],
+            ['text' => $q($r['qty_akhir'])], ['num' => $r['nilai_akhir']],
+        ], $k['rows']);
+        $t = $k['total'];
+
+        return [
+            'summary' => [
+                ['label' => 'Nilai persediaan awal', 'value' => $t['nilai_awal']],
+                ['label' => 'Nilai masuk', 'value' => $t['nilai_masuk']],
+                ['label' => 'Nilai keluar (HPP)', 'value' => $t['nilai_keluar']],
+                ['label' => 'Nilai persediaan akhir', 'value' => $t['nilai_akhir']],
+            ],
+            'detail' => [
+                'headers' => ['Kode', 'Produk', 'Satuan', 'Qty Awal', 'Nilai Awal', 'Qty Masuk', 'Nilai Masuk', 'Qty Keluar', 'Nilai Keluar', 'Qty Akhir', 'Nilai Akhir'],
+                'rows' => $rows,
+                'foot' => [['text' => 'TOTAL'], ['text' => ''], ['text' => ''], ['text' => ''], ['num' => $t['nilai_awal']], ['text' => ''], ['num' => $t['nilai_masuk']], ['text' => ''], ['num' => $t['nilai_keluar']], ['text' => ''], ['num' => $t['nilai_akhir']]],
+            ],
+        ];
+    }
+
+    private function piutangHutang(string $asOf, ?int $unitId): array
+    {
+        $p = $this->ledger->piutangHutang($asOf, $unitId);
+        $rows = [];
+        foreach (['piutang' => 'PIUTANG USAHA', 'hutang' => 'HUTANG USAHA'] as $key => $label) {
+            $rows[] = [['text' => $label], ['text' => ''], ['text' => ''], ['text' => ''], ['text' => ''], ['text' => ''], ['text' => ''], ['text' => '']];
+            foreach ($p[$key]['rows'] as $r) {
+                $rows[] = [
+                    ['text' => $r['nomor']],
+                    ['text' => Carbon::parse($r['tanggal'])->format('d/m/Y')],
+                    ['text' => $r['jatuh_tempo'] ? Carbon::parse($r['jatuh_tempo'])->format('d/m/Y') : '—'],
+                    ['text' => $r['pihak']],
+                    ['num' => $r['total']],
+                    ['num' => $r['dibayar']],
+                    ['num' => $r['sisa']],
+                    ['text' => $r['lewat_hari'] > 0 ? $r['lewat_hari'].' hari' : 'belum jatuh tempo'],
+                ];
+            }
+            $rows[] = [['text' => 'Total '.strtolower($label)], ['text' => ''], ['text' => ''], ['text' => ''], ['text' => ''], ['text' => ''], ['num' => $p[$key]['total']], ['text' => '']];
+        }
+
+        return [
+            'summary' => [
+                ['label' => 'Total piutang usaha', 'value' => $p['piutang']['total']],
+                ['label' => 'Total hutang usaha', 'value' => $p['hutang']['total']],
+            ],
+            'detail' => [
+                'headers' => ['No. Nota', 'Tanggal', 'Jatuh Tempo', 'Pihak', 'Total', 'Dibayar', 'Sisa', 'Lewat Jatuh Tempo'],
                 'rows' => $rows,
             ],
         ];

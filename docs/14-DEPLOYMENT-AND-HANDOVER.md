@@ -52,6 +52,23 @@ php artisan db:seed --class=ProductionSeeder --force
 
 Segera setelah bootstrap: kosongkan kembali `SEED_ADMIN_PASSWORD` & `SEED_PIMPINAN_PASSWORD` di `.env`, jalankan `php artisan config:clear`, serahkan password awal lewat kanal terpisah, dan minta pengelola meninjau nama unit/penanggung jawab serta chart of accounts sebelum saldo awal dikunci.
 
+### Go-live dengan data BUMDes (neraca 30 Juni 2026)
+
+Untuk server produksi BUMDes Munggu, pakai `ProduksiBumdesSeeder` sebagai pengganti `ProductionSeeder` — satu perintah seperti `DemoSeeder`, tetapi berisi data nyata dari laporan keuangan Juni 2026 (`database/seeders/data/bumdes-2026-06/`):
+
+```bash
+# Database baru/kosong. Isi SEED_ADMIN_*/SEED_PIMPINAN_* di .env; SEED_PERIODE_AWAL boleh kosong.
+php artisan migrate --force
+php artisan db:seed --class=ProduksiBumdesSeeder --force
+```
+
+Hasilnya: master data + akun login, 159 produk, 8 pelanggan (bidang desa), 32 nasabah pinjaman lama, 7 aset tetap, dan saldo awal **Juli 2026** yang sudah **dikunci** — total aktiva = total pasiva Rp 1.215.728.153,78, stok awal 91 produk Rp 67.765.827, 228 nota piutang Rp 752.016.100, sisa pinjaman pedagang Rp 126.123.000. Seluruh rekonsiliasi (stok, piutang, pinjaman, aset) langsung cocok sehingga periode Juli dapat ditutup normal.
+
+- Nota piutang lama dilunasi dari **Pelunasan Piutang Usaha** (berlabel *saldo awal*).
+- Setoran pinjaman lama (pokok + bunga + denda, borongan seperti slip kas kredit) dicatat di **Pembayaran Angsuran → Pinjaman Lama (Saldo Awal)**. Pinjaman baru tetap lewat **Data Pinjaman**.
+- Seeder menolak database yang sudah berisi saldo awal/transaksi (seluruh pemuatan satu transaksi DB) dan aman dijalankan ulang setelah berhasil.
+- Transaksi Juli 2026 s.d. tanggal go-live diinput Admin secara berurutan setelah seeder selesai.
+
 ## 3. Worker dan scheduler
 
 Process manager menjalankan `php artisan queue:work --tries=3 --timeout=120` (sesuaikan waktu ekspor dan retry_after agar tidak duplicate job). Scheduler: cron setiap menit `php /path/to/artisan schedule:run`. Posting finansial tidak di-queue; ekspor boleh queue setelah commit dan idempotent.

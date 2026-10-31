@@ -2,17 +2,21 @@
 
 namespace Database\Seeders;
 
+use App\Domain\Accounting\PostDocument;
 use App\Domain\Accounting\PostingService;
 use App\Domain\Accounting\SaveManualJournal;
 use App\Domain\Cash\SaveCashDraft;
 use App\Domain\FixedAssets\PostDepreciation;
 use App\Domain\FixedAssets\RegisterAsset;
+use App\Domain\Inventory\PostOpeningStock;
 use App\Domain\Lending\DisburseLoan;
 use App\Domain\Lending\SaveInstallmentPayment;
 use App\Domain\Lending\SaveLoanDraft;
+use App\Domain\MasterData\ImportProducts;
 use App\Domain\OpeningBalance\CommitImport;
 use App\Domain\OpeningBalance\LockOpeningBalance;
 use App\Domain\OpeningBalance\PreviewImport;
+use App\Domain\Shared\Decimal;
 use App\Domain\Trading\SaveTradingDraft;
 use App\Enums\TransaksiJenis;
 use App\Models\Akun;
@@ -27,18 +31,33 @@ use Illuminate\Database\Seeder;
 use RuntimeException;
 
 /**
- * Data demo KECIL & mudah ditelusuri untuk pengembangan/UAT — TERPISAH dari
- * produksi dan MENOLAK berjalan di environment production (dokumen13 tahap02).
- * Satu periode (Januari 2026) dengan angka bulat sehingga setiap baris laporan
- * dapat dihitung manual. Semua transaksi diposting lewat Actions/Services
- * aplikasi (bukan menulis ledger langsung) agar alurnya benar.
+ * Data LATIHAN kecil & mudah ditelusuri untuk pengembangan/UAT — TERPISAH dari
+ * produksi dan MENOLAK berjalan di environment production. Satu periode
+ * (Januari 2026); semua transaksi lewat Actions/Services aplikasi sehingga
+ * setiap laporan dapat dicocokkan manual dengan ringkasan di bawah.
  *
- * Ringkasan angka (lihat docs/PANDUAN-INPUT-DATA.md):
- *   Saldo awal : Kas 5.000.000 + Bank 25.000.000 = Modal/Dana 30.000.000
- *   Penjualan  : 6.800.000   HPP 5.400.000   → Laba kotor 1.400.000
- *   Pend. lain : bunga kredit 12.000 + bunga bank 25.000 = 37.000
- *   Beban      : gaji 500.000 + transport 100.000 + kantor 50.000 + susut 100.000 = 750.000
- *   Pajak usaha: 50.000  → Laba bersih Januari 637.000
+ * Master: 159 produk BUMDes; 16 produk latihan berstok 20–50 (+ jasa Fotocopy).
+ *
+ * MODAL DESA MUNGGU = Rp 50.000.000 (seimbang):
+ *   Saldo awal : Kas 10.000.000 + Bank 30.032.500        = Modal 40.032.500
+ *   Stok awal  : 16 produk @20–50 unit, nilai 9.967.500   → Modal  9.967.500
+ *
+ * Transaksi Januari 2026:
+ *   Pembelian kredit  : Nasi Bungkus 100, Snack Kotak 50 = 1.800.000 (lunas 20/01 dari bank)
+ *   Penjualan         : Konsumsi 3.130.000 · ATK+fotocopy 455.000 · Upakara (kredit) 750.000
+ *                       · Perdagangan 428.000 = 4.763.000;  HPP 4.132.000 → Laba kotor 631.000
+ *   Pendapatan lain   : Desa Wisata 500.000 + Fee Pupuk 150.000 + Bunga Bank 25.000
+ *                       + Bunga Pedagang 12.000 = 687.000
+ *   Biaya operasional : Pegawai 500.000 + Transport 100.000 + Kantor 50.000 + Penyusutan 100.000 = 750.000
+ *   Biaya non operas. : Pajak Bunga Bank 5.000 + Administrasi Bank 10.000 = 15.000
+ *   Pajak             : 50.000                 → LABA BERSIH JANUARI 503.000
+ *   Lainnya           : pelunasan piutang 500.000 (sisa piutang 250.000), tarik bank ke kas
+ *                       2.000.000, dana sosial 100.000, pinjaman pedagang 1.200.000 (angsuran ke-1
+ *                       100.000 + bunga 12.000), etalase 1.200.000.
+ *
+ * Neraca 31/01/2026: Kas 14.125.000 · Bank 26.192.500 · Piutang Usaha 250.000 · Piutang Pedagang
+ *   1.100.000 · Persediaan 7.635.500 · Inventaris neto 1.100.000 = 50.403.000
+ *   = Modal 50.000.000 − Dana Sosial 100.000 + Laba 503.000.
  *
  * Akun demo (password: demo12345) — hanya non-produksi:
  *   admin.demo@bumdes-munggu.test    (admin)
@@ -46,6 +65,30 @@ use RuntimeException;
  */
 class DemoSeeder extends Seeder
 {
+    public const MODAL = '50000000';
+
+    public const KAS_AWAL = '10000000';
+
+    /** Produk latihan: nama (sesuai daftar produk BUMDes) => stok awal (20–50). */
+    public const STOK = [
+        'Nasi Bungkus' => 50,
+        'Nasi Kotak' => 50,
+        'Snack Kotak' => 50,
+        'Snack bungkus' => 50,
+        'Aqua 600 ml' => 20,
+        'Kopi Setia Bali' => 20,
+        'Gula pasir ( Gulaku)' => 20,
+        'Hvs 70 gr F4 sidu' => 20,
+        'Bolpoin Joyko GP 330 Ht 0.5mm' => 50,
+        'Buku Folio paperline' => 25,
+        'Stop Map Folio' => 50,
+        'Amplop Paper Line No 90' => 20,
+        'Lem Stick Joyko' => 30,
+        'OLI ATAS (CASTROL)' => 20,
+        'Topi' => 25,
+        'Pejati' => 25,
+    ];
+
     private User $actor;
 
     private PeriodeAkuntansi $periode;
@@ -90,10 +133,12 @@ class DemoSeeder extends Seeder
             return;
         }
 
+        $this->seedOpeningStock();
         $this->seedTrading();
-        $this->seedExpenses();
+        $this->seedCash();
         $this->seedLoan();
         $this->seedAsset();
+        $this->seedTax();
     }
 
     private function seedMaster(): void
@@ -107,20 +152,12 @@ class DemoSeeder extends Seeder
             $this->pihak[$p['kode_pihak']] = Pihak::updateOrCreate(['kode_pihak' => $p['kode_pihak']], $p);
         }
 
-        $produk = [
-            ['kode_produk' => 'BRG-001', 'nama_produk' => 'Beras 5kg', 'satuan' => 'sak', 'harga_beli' => 60_000, 'harga_jual' => 75_000, 'stok_minimum' => 10],
-            ['kode_produk' => 'BRG-002', 'nama_produk' => 'Minyak Goreng 1L', 'satuan' => 'pcs', 'harga_beli' => 15_000, 'harga_jual' => 20_000, 'stok_minimum' => 15],
-        ];
-        foreach ($produk as $b) {
-            $this->produk[$b['kode_produk']] = Produk::updateOrCreate(
-                ['kode_produk' => $b['kode_produk']],
-                array_merge($b, [
-                    'unit_usaha_id' => $this->dagang->id,
-                    'stok_terkini' => 0,
-                    'harga_pokok_rata' => 0,
-                    'status' => 'aktif',
-                ]),
-            );
+        // Master produk BUMDes (tanpa stok); stok latihan diposting terpisah.
+        $import = app(ImportProducts::class);
+        $import->import($import->read(ProdukBumdesSeeder::FILE));
+
+        foreach (array_merge(array_keys(self::STOK), ['Fotocopy']) as $nama) {
+            $this->produk[$nama] = Produk::where('nama_produk', $nama)->firstOrFail();
         }
     }
 
@@ -132,68 +169,95 @@ class DemoSeeder extends Seeder
         );
     }
 
-    /** Saldo awal cutover (Januari) seimbang + terkunci: Kas/Bank vs Modal & Dana. */
+    /** Nilai stok awal latihan = Σ stok × harga beli. */
+    public static function nilaiStokAwal(): string
+    {
+        $total = '0';
+        foreach (self::STOK as $nama => $qty) {
+            $total = Decimal::add($total, Decimal::mul($qty, (string) Produk::where('nama_produk', $nama)->value('harga_beli')));
+        }
+
+        return $total;
+    }
+
+    /**
+     * Saldo awal cutover (Januari) seimbang + terkunci. Kas + Bank = Modal;
+     * bank dihitung agar Modal setelah stok awal tepat Rp 50.000.000.
+     */
     private function lockOpening(): void
     {
         if ($this->periode->opening_locked_at !== null) {
             return;
         }
 
+        $kasBank = Decimal::sub(self::MODAL, self::nilaiStokAwal());
+        $bank = Decimal::sub($kasBank, self::KAS_AWAL);
+
         $rows = [
-            ['kode_akun' => '1-1010', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '5000000', 'saldo_kredit' => '0', 'keterangan' => 'Kas awal'],
-            ['kode_akun' => '1-1020', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '25000000', 'saldo_kredit' => '0', 'keterangan' => 'Bank awal'],
-            ['kode_akun' => '3-3010', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '25000000', 'keterangan' => 'Modal dana desa'],
-            ['kode_akun' => '3-3040', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '3000000', 'keterangan' => 'Dana cadangan'],
-            ['kode_akun' => '3-3050', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '2000000', 'keterangan' => 'Dana pendidikan'],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => self::KAS_AWAL, 'saldo_kredit' => '0', 'keterangan' => 'Kas awal'],
+            ['kode_akun' => '1.1.01.02', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => $bank, 'saldo_kredit' => '0', 'keterangan' => 'Bank awal'],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => $kasBank, 'keterangan' => 'Modal Desa Munggu (bagian kas & bank)'],
         ];
 
         (new CommitImport)->handle($this->periode, (new PreviewImport)->handle($rows), $this->actor);
         app(LockOpeningBalance::class)->handle($this->periode, $this->actor);
     }
 
-    private function cash(): int
+    /** Stok awal 1 Januari: D Persediaan — K Modal Desa (per unit usaha). */
+    private function seedOpeningStock(): void
     {
-        return $this->akunByKode('1-1010');
-    }
+        $lines = [];
+        foreach (self::STOK as $nama => $qty) {
+            $lines[] = ['produk' => $this->produk[$nama], 'kuantitas' => (string) $qty, 'harga' => (string) $this->produk[$nama]->harga_beli];
+        }
 
-    private function akunByKode(string $kode): int
-    {
-        return (int) Akun::where('kode_akun', $kode)->value('id');
-    }
-
-    private function akunId(string $key): int
-    {
-        return (int) Akun::where('system_key', $key)->value('id');
+        app(PostOpeningStock::class)->handle($lines, '2026-01-01', $this->actor);
     }
 
     private function seedTrading(): void
     {
-        // Pembelian tunai (menambah stok).
-        $this->buy('2026-01-03', [['BRG-001', '100', '60000'], ['BRG-002', '50', '15000']], 'demo-buy-1');
+        // Pembelian kredit konsumsi (dibayar borongan tgl 20).
+        $beli = $this->trade(TransaksiJenis::Pembelian, '2026-01-03', 'kredit', 'SUPP-001', [
+            ['Nasi Bungkus', '100', '15000'], ['Snack Kotak', '50', '6000'],
+        ]);
 
-        // Penjualan tunai.
-        $this->sell('2026-01-10', 'tunai', 'CUST-001', [['BRG-001', '70', '75000'], ['BRG-002', '40', '20000']], 'demo-sell-1');
+        // Penjualan tunai konsumsi.
+        $this->trade(TransaksiJenis::Penjualan, '2026-01-10', 'tunai', null, [
+            ['Nasi Bungkus', '120', '17500'], ['Snack Kotak', '80', '7000'], ['Aqua 600 ml', '10', '47000'],
+        ]);
 
-        // Penjualan kredit (menimbulkan piutang usaha).
-        $this->sell('2026-01-20', 'kredit', 'CUST-001', [['BRG-001', '10', '75000']], 'demo-sell-2');
+        // Penjualan tunai ATK + jasa fotocopy.
+        $this->trade(TransaksiJenis::Penjualan, '2026-01-12', 'tunai', null, [
+            ['Hvs 70 gr F4 sidu', '5', '55000'], ['Bolpoin Joyko GP 330 Ht 0.5mm', '20', '1500'], ['Fotocopy', '500', '300'],
+        ]);
+
+        // Penjualan kredit upakara (menimbulkan piutang usaha).
+        $jual = $this->trade(TransaksiJenis::Penjualan, '2026-01-15', 'kredit', 'CUST-001', [['Pejati', '10', '75000']]);
+
+        // Penjualan tunai perdagangan.
+        $this->trade(TransaksiJenis::Penjualan, '2026-01-16', 'tunai', null, [['Topi', '5', '50000'], ['OLI ATAS (CASTROL)', '4', '44500']]);
+
+        // Pelunasan hutang dari bank & pelunasan piutang sebagian ke kas.
+        $this->cash('pelunasan_utang', '2026-01-20', null, '1.1.01.02', [['invoice_transaksi_id' => $beli->id, 'nominal' => '1800000']]);
+        $this->cash('pelunasan_piutang', '2026-01-25', null, '1.1.01.01', [['invoice_transaksi_id' => $jual->id, 'nominal' => '500000']]);
     }
 
-    private function seedExpenses(): void
+    private function seedCash(): void
     {
-        // Beban operasional rinci + pajak usaha (kredit Bank).
-        $this->journal('2026-01-27', [
-            ['kode' => '6-6040', 'debit' => '500000'],  // Beban Gaji Pegawai
-            ['kode' => '6-6050', 'debit' => '100000'],  // Beban Transportasi
-            ['kode' => '6-6060', 'debit' => '50000'],   // Beban Biaya Kantor
-            ['kode' => '6-6090', 'debit' => '50000'],   // Pajak Usaha
-            ['kode' => '1-1020', 'kredit' => '700000', 'arus' => 'operasi'],
-        ], 'demo-beban');
-
-        // Pendapatan bunga bank (debit Bank, kredit pendapatan bunga bank).
-        $this->journal('2026-01-27', [
-            ['kode' => '1-1020', 'debit' => '25000', 'arus' => 'operasi'],
-            ['kode' => '4-4050', 'kredit' => '25000'],
-        ], 'demo-bunga-bank');
+        foreach ([
+            ['pendapatan_wisata', '500000', '1.1.01.01', 'Tiket Desa Wisata'],
+            ['fee_pupuk', '150000', '1.1.01.01', 'Fee penyaluran pupuk'],
+            ['bunga_bank', '25000', '1.1.01.02', 'Bunga BPD Januari'],
+            ['pajak_bunga_bank', '5000', '1.1.01.02', 'Pajak bunga BPD'],
+            ['admin_bank', '10000', '1.1.01.02', 'Administrasi BPD'],
+            ['tarik_bank', '2000000', '1.1.01.01', 'Penambahan kas dari bank'],
+            ['biaya_pegawai', '500000', '1.1.01.01', 'Gaji pegawai Januari'],
+            ['biaya_transport', '100000', '1.1.01.01', 'Transport antar pesanan'],
+            ['biaya_kantor', '50000', '1.1.01.01', 'Alat tulis kantor'],
+            ['dana_sosial', '100000', '1.1.01.01', 'Santunan warga'],
+        ] as [$kategori, $nominal, $kas, $ket]) {
+            $this->cash($kategori, '2026-01-27', $nominal, $kas, [], $ket);
+        }
     }
 
     private function seedLoan(): void
@@ -209,13 +273,13 @@ class DemoSeeder extends Seeder
             'tanggal_angsuran_pertama' => '2026-01-25',
         ], $this->actor);
 
-        app(DisburseLoan::class)->handle($loan, '2026-01-05', $this->cash(), $this->actor, 'demo-disb', 'demo');
+        app(DisburseLoan::class)->handle($loan, '2026-01-05', $this->akunByKode('1.1.01.01'), $this->actor, 'demo-disb', 'demo');
 
         // Bayar angsuran ke-1 (pokok 100.000 + bunga 12.000).
         $a = $loan->angsuran()->where('angsuran_ke', 1)->firstOrFail();
         $pay = app(SaveInstallmentPayment::class)->handle([
             'tanggal' => '2026-01-25',
-            'akun_kas_id' => $this->cash(),
+            'akun_kas_id' => $this->akunByKode('1.1.01.01'),
             'allocations' => [[
                 'angsuran_id' => $a->id,
                 'pokok' => (string) $a->pokok_tagihan,
@@ -228,16 +292,7 @@ class DemoSeeder extends Seeder
 
     private function seedAsset(): void
     {
-        $draft = app(SaveCashDraft::class)->handle([
-            'tanggal' => '2026-01-05',
-            'unit_usaha_id' => $this->dagang->id,
-            'kategori_kode' => 'perolehan_aset',
-            'akun_kas_id' => $this->cash(),
-            'akun_lawan_id' => $this->akunId('fixed_asset'),
-            'nominal' => '1200000',
-            'keterangan' => 'Perolehan etalase',
-        ], $this->actor);
-        app(PostingService::class)->post($draft, 1, $this->actor, 'demo-aset-cash', 'demo');
+        $this->cash('perolehan_aset', '2026-01-05', '1200000', '1.1.01.01', [], 'Perolehan etalase', $this->akunByKode('1.3.03.01'));
 
         $aset = app(RegisterAsset::class)->handle([
             'kode_aset' => 'AST-001',
@@ -253,82 +308,77 @@ class DemoSeeder extends Seeder
         app(PostDepreciation::class)->handle($aset, $this->periode, $this->actor, 'demo-dep', 'demo');
     }
 
-    /**
-     * @param  array<int, array{0:string,1:string,2:string}>  $items
-     */
-    private function buy(string $tanggal, array $items, string $key): void
+    /** Pajak usaha Januari (jurnal penyesuaian: D Pajak — K Bank). */
+    private function seedTax(): void
     {
-        $draft = app(SaveTradingDraft::class)->handle([
-            'tanggal' => $tanggal,
-            'unit_usaha_id' => $this->dagang->id,
-            'pihak_id' => $this->pihak['SUPP-001']->id,
-            'metode_pembayaran' => 'tunai',
-            'items' => $this->items($items),
-        ], TransaksiJenis::Pembelian, $this->actor);
-
-        app(PostingService::class)->post($draft, 1, $this->actor, $key, 'demo');
-    }
-
-    /**
-     * @param  array<int, array{0:string,1:string,2:string}>  $items
-     */
-    private function sell(string $tanggal, string $metode, string $customer, array $items, string $key): void
-    {
-        $draft = app(SaveTradingDraft::class)->handle([
-            'tanggal' => $tanggal,
-            'unit_usaha_id' => $this->dagang->id,
-            'pihak_id' => $this->pihak[$customer]->id,
-            'metode_pembayaran' => $metode,
-            'jatuh_tempo' => $metode === 'kredit' ? '2026-02-20' : null,
-            'items' => $this->items($items),
-        ], TransaksiJenis::Penjualan, $this->actor);
-
-        app(PostingService::class)->post($draft, 1, $this->actor, $key, 'demo');
-    }
-
-    /**
-     * @param  array<int, array{0:string,1:string,2:string}>  $items
-     * @return array<int, array<string, string|int>>
-     */
-    private function items(array $items): array
-    {
-        return array_map(fn ($i) => [
-            'produk_id' => $this->produk[$i[0]]->id,
-            'kuantitas' => $i[1],
-            'harga' => $i[2],
-            'diskon' => '0',
-            'pajak' => '0',
-        ], $items);
-    }
-
-    /**
-     * Jurnal penyesuaian seimbang + posting. $lines: [['kode'=>, 'debit'?=>, 'kredit'?=>, 'arus'?=>]].
-     *
-     * @param  array<int, array{kode: string, debit?: string, kredit?: string, arus?: string}>  $lines
-     */
-    private function journal(string $tanggal, array $lines, string $key): void
-    {
-        $resolved = array_map(fn ($l) => [
-            'akun_id' => $this->akunByKode($l['kode']),
-            'debit' => $l['debit'] ?? '0',
-            'kredit' => $l['kredit'] ?? '0',
-        ], $lines);
+        $lines = [
+            ['akun_id' => $this->akunByKode('8.0'), 'debit' => '50000', 'kredit' => '0'],
+            ['akun_id' => $this->akunByKode('1.1.01.02'), 'debit' => '0', 'kredit' => '50000'],
+        ];
 
         $trx = app(SaveManualJournal::class)->handle([
-            'tanggal' => $tanggal,
+            'tanggal' => '2026-01-31',
             'periode_id' => $this->periode->id,
-            'keterangan' => 'Jurnal demo',
-            'lines' => $resolved,
+            'keterangan' => 'Pajak usaha Januari',
+            'lines' => $lines,
         ], $this->actor);
 
-        foreach ($lines as $l) {
-            if (! empty($l['arus'])) {
-                TransaksiDetail::where('transaksi_id', $trx->id)
-                    ->where('akun_id', $this->akunByKode($l['kode']))
-                    ->update(['kelompok_arus_kas' => $l['arus']]);
-            }
-        }
+        TransaksiDetail::where('transaksi_id', $trx->id)->where('akun_id', $this->akunByKode('1.1.01.02'))
+            ->update(['kelompok_arus_kas' => 'operasi']);
 
-        app(PostingService::class)->post($trx->fresh(['details']), $trx->version, $this->actor, $key, 'demo');
+        app(PostingService::class)->post($trx->fresh(['details']), $trx->version, $this->actor, 'demo-pajak', 'demo');
+    }
+
+    private function akunByKode(string $kode): int
+    {
+        return (int) Akun::where('kode_akun', $kode)->value('id');
+    }
+
+    /**
+     * @param  array<int, array{0: string, 1: string, 2: string}>  $items  [nama produk, qty, harga]
+     */
+    private function trade(TransaksiJenis $jenis, string $tanggal, string $metode, ?string $pihak, array $items): Transaksi
+    {
+        $draft = app(SaveTradingDraft::class)->handle([
+            'tanggal' => $tanggal,
+            'unit_usaha_id' => $this->produk[$items[0][0]]->unit_usaha_id,
+            'pihak_id' => $pihak ? $this->pihak[$pihak]->id : null,
+            'metode_pembayaran' => $metode,
+            'akun_kas_id' => $metode === 'tunai' ? $this->akunByKode('1.1.01.01') : null,
+            'jatuh_tempo' => $metode === 'kredit' ? '2026-02-20' : null,
+            'items' => array_map(fn ($i) => [
+                'produk_id' => $this->produk[$i[0]]->id,
+                'kuantitas' => $i[1],
+                'harga' => $i[2],
+                'diskon' => '0',
+                'pajak' => '0',
+            ], $items),
+        ], $jenis, $this->actor);
+
+        return app(PostDocument::class)->handle($draft, $this->actor);
+    }
+
+    /**
+     * Transaksi kas lewat kategori form Pemasukan & Pengeluaran (akun lawan
+     * default kategori bila tidak diberikan).
+     *
+     * @param  array<int, array{invoice_transaksi_id: int, nominal: string}>  $allocations
+     */
+    private function cash(string $kategori, string $tanggal, ?string $nominal, string $kasKode, array $allocations = [], ?string $keterangan = null, ?int $lawanId = null): Transaksi
+    {
+        $default = config("accounting.categories.{$kategori}.default_lawan");
+
+        $draft = app(SaveCashDraft::class)->handle([
+            'tanggal' => $tanggal,
+            'kategori_kode' => $kategori,
+            'akun_kas_id' => $this->akunByKode($kasKode),
+            'akun_lawan_id' => $lawanId ?? ($default ? $this->akunByKode($default) : null),
+            'nominal' => $nominal ?? '0',
+            'allocations' => $allocations,
+            'keterangan' => $keterangan,
+            'pihak_id' => $allocations ? Transaksi::find($allocations[0]['invoice_transaksi_id'])?->pihak_id : null,
+        ], $this->actor);
+
+        return app(PostDocument::class)->handle($draft, $this->actor);
     }
 }

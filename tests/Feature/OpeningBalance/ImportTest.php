@@ -35,7 +35,7 @@ class ImportTest extends TestCase
     {
         $preview = (new PreviewImport)->handle($this->rows([
             ['kode_akun' => 'NOPE', 'saldo_debit' => '100'],                       // akun tidak ada
-            ['kode_akun' => '1-1010', 'saldo_debit' => '100', 'saldo_kredit' => '100'], // dua sisi positif
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '100', 'saldo_kredit' => '100'], // dua sisi positif
         ]));
 
         $this->assertTrue($preview['has_errors']);
@@ -47,8 +47,8 @@ class ImportTest extends TestCase
     public function test_preview_computes_balanced_totals(): void
     {
         $preview = (new PreviewImport)->handle($this->rows([
-            ['kode_akun' => '1-1010', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '1000000'],
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '1000000'],
         ]));
 
         $this->assertFalse($preview['has_errors']);
@@ -63,8 +63,8 @@ class ImportTest extends TestCase
         $actor = User::factory()->create();
 
         $preview = (new PreviewImport)->handle($this->rows([
-            ['kode_akun' => '1-1010', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '1000000'],
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '1000000'],
         ]));
 
         $count = (new CommitImport)->handle($periode, $preview, $actor);
@@ -93,14 +93,14 @@ class ImportTest extends TestCase
         $commit = new CommitImport;
 
         $commit->handle($periode, (new PreviewImport)->handle($this->rows([
-            ['kode_akun' => '1-1010', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '1000000'],
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '1000000'],
         ])), $actor);
         $this->assertDatabaseCount('saldo_awal_akun', 2);
 
         // Impor ulang (belum dikunci) mengganti isi periode.
         $commit->handle($periode, (new PreviewImport)->handle($this->rows([
-            ['kode_akun' => '1-1020', 'saldo_debit' => '500000'],
+            ['kode_akun' => '1.1.01.02', 'saldo_debit' => '500000'],
         ])), $actor);
 
         $this->assertDatabaseCount('saldo_awal_akun', 1);
@@ -110,13 +110,13 @@ class ImportTest extends TestCase
     public function test_parser_reads_csv(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'opening_').'.csv';
-        file_put_contents($path, "kode_akun,unit_kode,saldo_debit,saldo_kredit,keterangan\n1-1010,,1000000,0,kas awal\n");
+        file_put_contents($path, "kode_akun,unit_kode,saldo_debit,saldo_kredit,keterangan\n1.1.01.01,,1000000,0,kas awal\n");
 
         $rows = (new OpeningImportParser)->parse($path);
         @unlink($path);
 
         $this->assertCount(1, $rows);
-        $this->assertSame('1-1010', $rows[0]['kode_akun']);
+        $this->assertSame('1.1.01.01', $rows[0]['kode_akun']);
         $this->assertSame('1000000', $rows[0]['saldo_debit']);
     }
 }

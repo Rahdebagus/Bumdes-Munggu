@@ -23,6 +23,7 @@ class ReportExportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local'); // ekspor PDF/XLSX tidak menumpuk di storage asli
         $this->bootFixtureA();
     }
 

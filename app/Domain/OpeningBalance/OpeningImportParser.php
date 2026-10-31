@@ -16,7 +16,10 @@ class OpeningImportParser
     /** @return array<int, array<string, string>> */
     public function parse(string $path): array
     {
-        $sheet = IOFactory::load($path)->getActiveSheet();
+        // Template punya lembar Petunjuk/Daftar Akun: utamakan lembar "saldo_awal"
+        // walau file disimpan saat lembar lain sedang aktif.
+        $book = IOFactory::load($path);
+        $sheet = $book->getSheetByName('saldo_awal') ?? $book->getActiveSheet();
         $matrix = $sheet->toArray(null, true, false, false);
 
         if ($matrix === []) {

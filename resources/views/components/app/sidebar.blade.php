@@ -8,10 +8,12 @@
             ['label' => 'Dashboard', 'route' => 'dashboard', 'icon' => 'dashboard'],
         ],
         'Transaksi' => [
-            ['label' => 'Penjualan', 'route' => 'sales.create', 'icon' => 'cart'],
-            ['label' => 'Pembelian', 'route' => 'purchases.create', 'icon' => 'bag'],
-            ['label' => 'Pemasukan & Pengeluaran', 'route' => 'cash.create', 'icon' => 'exchange'],
-            ['label' => 'Pembayaran Angsuran', 'route' => 'payments.index', 'icon' => 'credit-card'],
+            ['label' => 'Penjualan', 'route' => 'sales.create', 'admin' => true, 'icon' => 'cart'],
+            ['label' => 'Pembelian', 'route' => 'purchases.create', 'admin' => true, 'icon' => 'bag'],
+            ['label' => 'Pemasukan & Pengeluaran', 'route' => 'cash.create', 'admin' => true, 'icon' => 'exchange'],
+            ['label' => 'Pelunasan Hutang Usaha', 'route' => 'settlements.payable', 'admin' => true, 'icon' => 'wallet'],
+            ['label' => 'Pelunasan Piutang Usaha', 'route' => 'settlements.receivable', 'admin' => true, 'icon' => 'cash'],
+            ['label' => 'Pembayaran Angsuran', 'route' => 'payments.index', 'admin' => true, 'icon' => 'credit-card'],
             ['label' => 'Daftar Transaksi', 'route' => 'transactions.index', 'icon' => 'list'],
         ],
         'Usaha Kredit' => [
@@ -31,9 +33,10 @@
             ['label' => 'Stok Opname', 'route' => 'stocktakes.index', 'icon' => 'clipboard-check'],
         ],
         'Akuntansi' => [
-            ['label' => 'Jurnal Transaksi', 'route' => 'transactions.index', 'icon' => 'journal'],
-            ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal', 'icon' => 'edit'],
+            ['label' => 'Jurnal Umum', 'route' => 'journal.index', 'icon' => 'journal'],
+            ['label' => 'Jurnal Penyesuaian', 'route' => 'accounting.manual-journal', 'admin' => true, 'icon' => 'edit'],
             ['label' => 'Buku Besar', 'route' => 'reports.index', 'params' => ['type' => 'buku-besar'], 'icon' => 'ledger'],
+            ['label' => 'Neraca Saldo', 'route' => 'reports.index', 'params' => ['type' => 'neraca-saldo'], 'icon' => 'scale'],
             ['label' => 'Periode Akuntansi', 'route' => 'periods.index', 'icon' => 'calendar-check'],
         ],
         'Aset' => [
@@ -45,6 +48,10 @@
             ['label' => 'Neraca', 'route' => 'reports.index', 'params' => ['type' => 'neraca'], 'icon' => 'scale'],
             ['label' => 'Perubahan Modal', 'route' => 'reports.index', 'params' => ['type' => 'perubahan-modal'], 'icon' => 'trending-up'],
             ['label' => 'Arus Kas', 'route' => 'reports.index', 'params' => ['type' => 'arus-kas'], 'icon' => 'cash'],
+            ['label' => 'Buku Kas', 'route' => 'reports.index', 'params' => ['type' => 'buku-kas'], 'icon' => 'wallet'],
+            ['label' => 'Buku Bank', 'route' => 'reports.index', 'params' => ['type' => 'buku-bank'], 'icon' => 'bank'],
+            ['label' => 'Laporan Persediaan', 'route' => 'reports.index', 'params' => ['type' => 'kartu-stok'], 'icon' => 'cube'],
+            ['label' => 'Piutang & Hutang', 'route' => 'reports.index', 'params' => ['type' => 'piutang-hutang'], 'icon' => 'list'],
             ['label' => 'Laporan Kredit', 'route' => 'reports.index', 'params' => ['type' => 'kredit'], 'icon' => 'percent'],
             ['label' => 'Laporan Omzet Desa', 'route' => 'reports.laporan-desa', 'icon' => 'storefront'],
         ],
@@ -111,7 +118,16 @@
     </div>
 
     {{-- Navigasi --}}
-    <nav class="flex-1 overflow-y-auto px-3 py-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
+    <nav data-sidebar-nav class="flex-1 overflow-y-auto px-3 py-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
+        @php
+            // Menu input ('admin' => true) hanya untuk Admin; Pimpinan = baca + persetujuan
+            // (matriks kewenangan dokumen01). Rute-nya juga dikunci di server.
+            $bolehInput = auth()->user()?->can('perform-admin-mutation') ?? false;
+            $groups = array_filter(array_map(
+                fn ($items) => array_values(array_filter($items, fn ($i) => $bolehInput || empty($i['admin']))),
+                $groups
+            ));
+        @endphp
         @foreach ($groups as $group => $items)
             @unless ($group === 'Dashboard')
                 <p class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-white/35">{{ $group }}</p>

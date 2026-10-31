@@ -32,7 +32,7 @@ class ReportsPageTest extends TestCase
             ->test(Index::class, ['type' => 'buku-besar', 'bulan' => 6, 'tahun' => 2026])
             ->assertOk()
             ->assertSee('Buku Besar')
-            ->assertSee('1-1010')          // kode akun kas muncul di ledger
+            ->assertSee('1.1.01.01')          // kode akun kas muncul di ledger
             ->assertSee('Saldo Akhir');
     }
 

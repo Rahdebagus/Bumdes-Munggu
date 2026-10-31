@@ -22,6 +22,31 @@ class SettlementQuery
         return Decimal::sub((string) $invoice->total, $allocated);
     }
 
+    /**
+     * Σ alokasi terposting untuk banyak invoice dalam satu query (daftar
+     * pelunasan, laporan piutang/hutang, rekonsiliasi) — bukan satu query per nota.
+     *
+     * @param  array<int, int>  $invoiceIds
+     * @return array<int, string> invoice id => total dialokasikan (invoice tanpa alokasi tidak ada)
+     */
+    public function invoiceAllocatedMany(array $invoiceIds, ?string $asOf = null, ?int $excludeCashTrxId = null): array
+    {
+        if ($invoiceIds === []) {
+            return [];
+        }
+
+        return AlokasiPelunasan::query()
+            ->whereIn('invoice_transaksi_id', $invoiceIds)
+            ->whereHas('pembayaranTransaksi', fn ($q) => $q->whereNotNull('posted_at')->where('status', 'posted')
+                ->when($asOf, fn ($w) => $w->whereDate('tanggal', '<=', $asOf)))
+            ->when($excludeCashTrxId, fn ($q) => $q->where('pembayaran_transaksi_id', '!=', $excludeCashTrxId))
+            ->groupBy('invoice_transaksi_id')
+            ->selectRaw('invoice_transaksi_id, SUM(nominal) as total')
+            ->pluck('total', 'invoice_transaksi_id')
+            ->map(fn ($v) => Decimal::of((string) $v))
+            ->all();
+    }
+
     public function openingOutstanding(int $rincianId, ?int $excludeCashTrxId = null): string
     {
         $rincian = SaldoAwalRincian::findOrFail($rincianId);

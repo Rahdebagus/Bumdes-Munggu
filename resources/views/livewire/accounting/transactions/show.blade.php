@@ -21,16 +21,25 @@
             </div>
             <div class="text-right">
                 <p class="text-xs text-slate-400">Total</p>
-                <p class="text-2xl font-semibold tabular-nums text-slate-900">{{ number_format((float) $trx->total, 2, ',', '.') }}</p>
-                <div class="mt-2 flex justify-end gap-2">
+                <p class="text-2xl font-semibold tabular-nums text-slate-900">{{ 'Rp '.number_format((float) $trx->total, 0, ',', '.') }}</p>
+                <div class="mt-2 flex flex-wrap justify-end gap-2">
+                    <a href="{{ route('transactions.nota', $trx) }}" target="_blank"
+                       class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cetak Nota</a>
                     @can('perform-admin-mutation')
                         @if ($trx->status === TransaksiStatus::Draft)
+                            @if ($editUrl)
+                                <a href="{{ $editUrl }}" wire:navigate class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Edit</a>
+                                <x-ui.button variant="ghost" wire:click="deleteDraft" wire:confirm="Hapus draft {{ $trx->nomor_transaksi }}?" class="text-red-600">Hapus</x-ui.button>
+                            @endif
                             <x-ui.button wire:click="post" wire:loading.attr="disabled">Posting</x-ui.button>
-                        @elseif ($trx->status === TransaksiStatus::Posted && $canReverse)
-                            <x-ui.button variant="danger" wire:click="$set('confirmingReverse', true)">Reverse</x-ui.button>
+                        @elseif ($trx->status === TransaksiStatus::Posted && $canReverse && ! $trx->reversal_of_id)
+                            <x-ui.button variant="danger" wire:click="$set('confirmingReverse', true)">Batal Posting</x-ui.button>
                         @endif
                     @endcan
                 </div>
+                @if ($trx->status === TransaksiStatus::Posted)
+                    <p class="mt-1 text-xs text-slate-400">Terkunci: dokumen terposting tidak dapat diedit langsung.</p>
+                @endif
             </div>
         </div>
     </x-ui.card>
@@ -41,8 +50,8 @@
             @foreach ($trx->details as $d)
                 <tr>
                     <td class="px-4 py-2">{{ $d->akun?->kode_akun }} — {{ $d->akun?->nama_akun }}</td>
-                    <td class="px-4 py-2 text-right tabular-nums">{{ (float) $d->debit ? number_format((float) $d->debit, 2, ',', '.') : '' }}</td>
-                    <td class="px-4 py-2 text-right tabular-nums">{{ (float) $d->kredit ? number_format((float) $d->kredit, 2, ',', '.') : '' }}</td>
+                    <td class="px-4 py-2 text-right tabular-nums">{{ (float) $d->debit ? 'Rp '.number_format((float) $d->debit, 0, ',', '.') : '' }}</td>
+                    <td class="px-4 py-2 text-right tabular-nums">{{ (float) $d->kredit ? 'Rp '.number_format((float) $d->kredit, 0, ',', '.') : '' }}</td>
                 </tr>
             @endforeach
         </x-ui.table>
@@ -56,9 +65,9 @@
                     <tr>
                         <td class="px-4 py-2">{{ $b->produk?->nama_produk }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ rtrim(rtrim($b->kuantitas, '0'), '.') }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ number_format((float) $b->harga, 2, ',', '.') }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ number_format((float) $b->harga_pokok, 2, ',', '.') }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ number_format((float) $b->subtotal, 2, ',', '.') }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums">{{ 'Rp '.number_format((float) $b->harga, 0, ',', '.') }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ 'Rp '.number_format((float) $b->harga_pokok, 0, ',', '.') }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums">{{ 'Rp '.number_format((float) $b->subtotal, 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
             </x-ui.table>
@@ -74,9 +83,9 @@
                         <td class="px-4 py-2">{{ $m->produk?->nama_produk }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ (float) $m->kuantitas_masuk ? rtrim(rtrim($m->kuantitas_masuk, '0'), '.') : '' }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ (float) $m->kuantitas_keluar ? rtrim(rtrim($m->kuantitas_keluar, '0'), '.') : '' }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ number_format((float) ($m->nilai_masuk ?: $m->nilai_keluar), 2, ',', '.') }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ 'Rp '.number_format((float) ($m->nilai_masuk ?: $m->nilai_keluar), 0, ',', '.') }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ rtrim(rtrim($m->saldo_kuantitas, '0'), '.') }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ number_format((float) $m->saldo_nilai, 2, ',', '.') }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums">{{ 'Rp '.number_format((float) $m->saldo_nilai, 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
             </x-ui.table>
@@ -144,13 +153,16 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
             <div class="absolute inset-0 bg-slate-900/50" wire:click="$set('confirmingReverse', false)"></div>
             <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-                <h2 class="text-sm font-semibold text-slate-900">Alasan pembalikan</h2>
-                <p class="mt-1 text-xs text-slate-500">Pembalik dibuat pada tanggal {{ $trx->tanggal->format('d M Y') }}.</p>
-                <textarea wire:model="reverseReason" rows="3" class="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+                <h2 class="text-sm font-semibold text-slate-900">Batal Posting {{ $trx->nomor_transaksi }}</h2>
+                <p class="mt-1 text-xs text-slate-500">Jurnal tidak dihapus: sistem membuat jurnal pembalik pada tanggal {{ $trx->tanggal->format('d M Y') }} sehingga saldo kembali seperti semula (stok ikut dikembalikan). Tulis alasannya:</p>
+                <textarea wire:model="reverseReason" rows="3" class="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="mis. salah input qty"></textarea>
                 @error('reverseReason') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
-                <div class="mt-3 flex justify-end gap-2">
-                    <x-ui.button variant="secondary" wire:click="$set('confirmingReverse', false)">Batal</x-ui.button>
-                    <x-ui.button variant="danger" wire:click="reverse">Balik transaksi</x-ui.button>
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                    <x-ui.button variant="secondary" wire:click="$set('confirmingReverse', false)">Tutup</x-ui.button>
+                    <x-ui.button variant="danger" wire:click="reverse">Batalkan saja</x-ui.button>
+                    @if ($isFormDocument)
+                        <x-ui.button wire:click="cancelPosting">Batalkan &amp; edit ulang</x-ui.button>
+                    @endif
                 </div>
             </div>
         </div>

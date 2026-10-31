@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\EvidenceDownloadController;
 use App\Http\Controllers\LaporanDesaExportController;
+use App\Http\Controllers\OpeningBalanceTemplateController;
 use App\Http\Controllers\ReportExportController;
+use App\Http\Controllers\TransactionNotaController;
+use App\Livewire\Accounting\Journal as AccountingJournal;
 use App\Livewire\Accounting\ManualJournal;
 use App\Livewire\Accounting\Transactions\Index as TransactionsIndex;
 use App\Livewire\Accounting\Transactions\Show as TransactionsShow;
 use App\Livewire\Cash\Create as CashCreate;
+use App\Livewire\Cash\Settlements as CashSettlements;
 use App\Livewire\Dashboard\Index as Dashboard;
 use App\Livewire\FixedAssets\Create as AssetCreate;
 use App\Livewire\FixedAssets\Depreciation as AssetDepreciation;
@@ -51,27 +55,36 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Saldo awal (opening balance).
     Route::get('/saldo-awal', OpeningBalanceIndex::class)->name('opening-balance');
+    Route::get('/saldo-awal/format.{format}', OpeningBalanceTemplateController::class)->name('opening-balance.template');
+
+    // Akuntansi: jurnal umum (read-only, hasil posting dokumen).
+    Route::get('/jurnal-umum', AccountingJournal::class)->name('journal.index');
 
     // Akuntansi: jurnal penyesuaian (post/reverse via PostingService).
-    Route::get('/jurnal-penyesuaian', ManualJournal::class)->name('accounting.manual-journal');
+    Route::get('/jurnal-penyesuaian', ManualJournal::class)->name('accounting.manual-journal')->middleware('can:perform-admin-mutation');
 
     // Dagang (buat draft → detail → posting).
-    Route::get('/penjualan/baru', TradingCreate::class)->defaults('jenis', 'penjualan')->name('sales.create');
-    Route::get('/pembelian/baru', TradingCreate::class)->defaults('jenis', 'pembelian')->name('purchases.create');
+    Route::get('/penjualan/baru', TradingCreate::class)->defaults('jenis', 'penjualan')->name('sales.create')->middleware('can:perform-admin-mutation');
+    Route::get('/pembelian/baru', TradingCreate::class)->defaults('jenis', 'pembelian')->name('purchases.create')->middleware('can:perform-admin-mutation');
 
     // Kas (pemasukan/pengeluaran/pelunasan).
-    Route::get('/kas/baru', CashCreate::class)->name('cash.create');
+    Route::get('/kas/baru', CashCreate::class)->name('cash.create')->middleware('can:perform-admin-mutation');
+
+    // Pelunasan borongan: beberapa nota kredit sekaligus.
+    Route::get('/pelunasan-hutang', CashSettlements::class)->defaults('mode', 'hutang')->name('settlements.payable')->middleware('can:perform-admin-mutation');
+    Route::get('/pelunasan-piutang', CashSettlements::class)->defaults('mode', 'piutang')->name('settlements.receivable')->middleware('can:perform-admin-mutation');
 
     // Daftar & detail transaksi (drilldown jurnal + kartu stok, post/reverse).
     Route::get('/transaksi', TransactionsIndex::class)->name('transactions.index');
     Route::get('/transaksi/{transaksi}', TransactionsShow::class)->name('transactions.show');
+    Route::get('/transaksi/{transaksi}/nota', TransactionNotaController::class)->name('transactions.nota');
 
     // Usaha kredit: peminjam, pinjaman, jadwal, pembayaran angsuran.
     Route::get('/peminjam', BorrowersIndex::class)->name('borrowers.index');
     Route::get('/pinjaman', LoansIndex::class)->name('loans.index');
-    Route::get('/pinjaman/baru', LoanCreate::class)->name('loans.create');
+    Route::get('/pinjaman/baru', LoanCreate::class)->name('loans.create')->middleware('can:perform-admin-mutation');
     Route::get('/angsuran/jadwal', SchedulesIndex::class)->name('schedules.index');
-    Route::get('/angsuran/pembayaran', PaymentsIndex::class)->name('payments.index');
+    Route::get('/angsuran/pembayaran', PaymentsIndex::class)->name('payments.index')->middleware('can:perform-admin-mutation');
     Route::get('/pinjaman/{pinjaman}', LoanShow::class)->name('loans.show');
 
     // Persediaan + kartu stok.
@@ -79,12 +92,12 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Stok opname (workflow + approval Pimpinan).
     Route::get('/stok-opname', StocktakesIndex::class)->name('stocktakes.index');
-    Route::get('/stok-opname/baru', StocktakeCreate::class)->name('stocktakes.create');
+    Route::get('/stok-opname/baru', StocktakeCreate::class)->name('stocktakes.create')->middleware('can:perform-admin-mutation');
     Route::get('/stok-opname/{opname}', StocktakeShow::class)->name('stocktakes.show');
 
     // Aset tetap + penyusutan.
     Route::get('/aset', AssetsIndex::class)->name('assets.index');
-    Route::get('/aset/baru', AssetCreate::class)->name('assets.create');
+    Route::get('/aset/baru', AssetCreate::class)->name('assets.create')->middleware('can:perform-admin-mutation');
     Route::get('/penyusutan', AssetDepreciation::class)->name('depreciation.index');
     Route::get('/aset/{aset}', AssetShow::class)->name('assets.show');
 

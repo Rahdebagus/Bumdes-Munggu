@@ -56,34 +56,34 @@ class NegativeLineTest extends TestCase
         $this->assertSame(0, Transaksi::count());
     }
 
+    /** @return array<string, mixed> */
+    private function form(array $item): array
+    {
+        return [
+            'tanggal' => '2026-01-10', 'unit_usaha_id' => $this->unit->id, 'pihak_id' => null,
+            'metode_pembayaran' => 'tunai', 'akun_kas_id' => (int) Akun::where('system_key', 'cash')->value('id'),
+            'items' => [array_merge(['produk_id' => $this->produk->id], $item)],
+        ];
+    }
+
     public function test_form_menolak_subtotal_negatif(): void
     {
-        Livewire::actingAs($this->admin)->test(Create::class, ['jenis' => 'penjualan'])
-            ->set('unit_usaha_id', $this->unit->id)
-            ->set('akun_kas_id', (int) Akun::where('system_key', 'cash')->value('id'))
-            ->set('items.0.produk_id', $this->produk->id)
-            ->set('items.0.kuantitas', '1')
-            ->set('items.0.harga', '1')
-            ->set('items.0.diskon', '5000')
-            ->call('save')
-            ->assertHasErrors('items.0.diskon');
+        $res = Livewire::actingAs($this->admin)->test(Create::class, ['jenis' => 'penjualan'])
+            ->call('save', $this->form(['kuantitas' => '1', 'harga' => '1', 'diskon' => '5000']), false)
+            ->effects['returns'][0];
 
+        $this->assertFalse($res['ok']);
+        $this->assertArrayHasKey('items.0.diskon', $res['errors']);
         $this->assertSame(0, Transaksi::count());
     }
 
     public function test_baris_valid_tetap_bisa_disimpan(): void
     {
-        Livewire::actingAs($this->admin)->test(Create::class, ['jenis' => 'penjualan'])
-            ->set('tanggal', '2026-01-10')
-            ->set('unit_usaha_id', $this->unit->id)
-            ->set('akun_kas_id', (int) Akun::where('system_key', 'cash')->value('id'))
-            ->set('items.0.produk_id', $this->produk->id)
-            ->set('items.0.kuantitas', '2')
-            ->set('items.0.harga', '5000')
-            ->set('items.0.diskon', '0')
-            ->call('save')
-            ->assertHasNoErrors();
+        $res = Livewire::actingAs($this->admin)->test(Create::class, ['jenis' => 'penjualan'])
+            ->call('save', $this->form(['kuantitas' => '2', 'harga' => '5000', 'diskon' => '0']), false)
+            ->effects['returns'][0];
 
+        $this->assertTrue($res['ok']);
         $this->assertSame('10000.00', Transaksi::firstOrFail()->total);
     }
 }

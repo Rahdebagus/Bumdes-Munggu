@@ -11,11 +11,17 @@
     $tabs = [
         'laba-rugi' => 'Laba Rugi',
         'neraca' => 'Neraca',
+        'neraca-saldo' => 'Neraca Saldo',
         'perubahan-modal' => 'Perubahan Modal',
         'arus-kas' => 'Arus Kas',
+        'buku-kas' => 'Buku Kas',
+        'buku-bank' => 'Buku Bank',
+        'buku-besar' => 'Buku Besar',
+        'jurnal-umum' => 'Jurnal Umum',
+        'kartu-stok' => 'Persediaan',
+        'piutang-hutang' => 'Piutang/Hutang',
         'kredit' => 'Laporan Kredit',
         'omzet-desa' => 'Laporan Omzet Desa',
-        'buku-besar' => 'Buku Besar',
     ];
     $exportParams = ['type' => $type, 'from' => $from, 'to' => $to, 'unitId' => $unitId];
 @endphp
@@ -89,14 +95,15 @@
     {{-- Tabs --}}
     <div class="no-print flex flex-wrap gap-1 border-b border-slate-200">
         @foreach ($tabs as $value => $label)
-            <button type="button" wire:click="$set('type', '{{ $value }}')"
-                    @class([
-                        '-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition',
-                        'border-emerald-600 text-emerald-700' => $type === $value,
-                        'border-transparent text-slate-500 hover:text-slate-800' => $type !== $value,
-                    ])>
+            {{-- Link + wire:navigate (bukan reload penuh) agar menu sidebar ikut tersorot. --}}
+            <a href="{{ route('reports.index', ['type' => $value, 'bulan' => $bulan, 'tahun' => $tahun, 'unitId' => $unitId]) }}" wire:navigate
+               @class([
+                   '-mb-px border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition',
+                   'border-emerald-600 text-emerald-700' => $type === $value,
+                   'border-transparent text-slate-500 hover:text-slate-800' => $type !== $value,
+               ])>
                 {{ $label }}
-            </button>
+            </a>
         @endforeach
     </div>
 
@@ -139,6 +146,11 @@
                     <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">Pembelian Bersih</span><span class="tabular-nums text-slate-700">{{ $rp($d['hpp']['pembelian_bersih']) }}</span></div>
                     <div class="flex justify-between border-b border-slate-100 py-1.5 font-medium"><span class="pl-4 text-slate-700">Barang Tersedia Dijual</span><span class="tabular-nums text-slate-800">{{ $rp($d['hpp']['barang_tersedia']) }}</span></div>
                     <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">Persediaan Akhir</span><span class="tabular-nums text-slate-700">{{ $rp($d['hpp']['persediaan_akhir']) }}</span></div>
+                    @foreach ($d['hpp']['rows'] as $r)
+                        @if ((float) $r['value'] != 0)
+                            <div class="flex justify-between border-b border-slate-50 py-1"><span class="pl-8 text-xs text-slate-500">{{ $r['label'] }}</span><span class="text-xs tabular-nums text-slate-500">{{ $rp($r['value']) }}</span></div>
+                        @endif
+                    @endforeach
                     <div class="flex justify-between border-y border-slate-200 bg-slate-50 px-1 py-2 font-semibold text-slate-800"><span>Harga Pokok Penjualan</span><span class="tabular-nums">{{ $rp($d['hpp']['hpp']) }}</span></div>
 
                     <div class="mt-2 flex justify-between border-y-2 border-emerald-200 py-2 font-bold text-emerald-700"><span>Laba Kotor Penjualan</span><span class="tabular-nums">{{ $rp($d['laba_kotor']) }}</span></div>
@@ -151,17 +163,23 @@
 
                     <div class="mt-2 flex justify-between border-y-2 border-emerald-200 py-2 font-bold text-emerald-700"><span>Laba Setelah Pendapatan Lain</span><span class="tabular-nums">{{ $rp($d['laba_setelah_lain']) }}</span></div>
 
-                    <div class="pt-4 pb-1 font-semibold text-slate-800">Beban</div>
+                    <div class="pt-4 pb-1 font-semibold text-slate-800">Biaya Operasional</div>
                     @foreach ($d['beban']['rows'] as $r)
                         <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">{{ $r['label'] }}</span><span class="tabular-nums text-slate-700">{{ $rp($r['value']) }}</span></div>
                     @endforeach
-                    <div class="flex justify-between border-y border-slate-200 bg-slate-50 px-1 py-2 font-semibold text-slate-800"><span>Total Beban</span><span class="tabular-nums">{{ $rp($d['beban']['total']) }}</span></div>
+                    <div class="flex justify-between border-y border-slate-200 bg-slate-50 px-1 py-2 font-semibold text-slate-800"><span>Total Biaya Operasional</span><span class="tabular-nums">{{ $rp($d['beban']['total']) }}</span></div>
+
+                    <div class="pt-4 pb-1 font-semibold text-slate-800">Biaya Non Operasional</div>
+                    @foreach ($d['beban_non_operasional']['rows'] as $r)
+                        <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">{{ $r['label'] }}</span><span class="tabular-nums text-slate-700">{{ $rp($r['value']) }}</span></div>
+                    @endforeach
+                    <div class="flex justify-between border-y border-slate-200 bg-slate-50 px-1 py-2 font-semibold text-slate-800"><span>Total Biaya Non Operasional</span><span class="tabular-nums">{{ $rp($d['beban_non_operasional']['total']) }}</span></div>
 
                     <div class="mt-2 flex justify-between border-y-2 border-emerald-200 py-2 font-bold text-emerald-700"><span>Laba Sebelum Pajak</span><span class="tabular-nums">{{ $rp($d['laba_sebelum_pajak']) }}</span></div>
                     @forelse ($d['pajak']['rows'] as $r)
                         <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">{{ $r['label'] }}</span><span class="tabular-nums text-slate-700">{{ $rp($r['value']) }}</span></div>
                     @empty
-                        <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">Pajak Usaha</span><span class="tabular-nums text-slate-700">{{ $rp(0) }}</span></div>
+                        <div class="flex justify-between border-b border-slate-50 py-1.5"><span class="pl-4 text-slate-600">Pajak</span><span class="tabular-nums text-slate-700">{{ $rp(0) }}</span></div>
                     @endforelse
 
                     <div class="mt-2 flex justify-between rounded-lg bg-emerald-600 px-3 py-2.5 text-base font-bold text-white"><span>Laba Bersih {{ $this->periodeLabel() }}</span><span class="tabular-nums">{{ $rp($d['laba_bersih']) }}</span></div>
@@ -262,12 +280,18 @@
                         <tbody class="divide-y divide-slate-100 bg-white">
                             @forelse ($d['rows'] as $r)
                                 <tr class="{{ $r['terlambat'] ? 'bg-rose-50/40' : '' }}">
-                                    <td class="px-3 py-2.5 font-medium text-slate-900"><a href="{{ route('loans.show', $r['id']) }}" wire:navigate class="text-emerald-700 hover:underline">{{ $r['nomor'] }}</a></td>
+                                    <td class="px-3 py-2.5 font-medium text-slate-900">
+                                        @if ($r['id'])
+                                            <a href="{{ route('loans.show', $r['id']) }}" wire:navigate class="text-emerald-700 hover:underline">{{ $r['nomor'] }}</a>
+                                        @else
+                                            {{ $r['nomor'] }}
+                                        @endif
+                                    </td>
                                     <td class="px-3 py-2.5 text-slate-600">{{ $r['peminjam'] }}</td>
                                     <td class="px-3 py-2.5 tabular-nums text-slate-500">{{ $r['tanggal'] }}</td>
                                     <td class="px-3 py-2.5 text-right tabular-nums text-slate-700">{{ $rp($r['pokok']) }}</td>
                                     <td class="px-3 py-2.5 text-right tabular-nums text-slate-700">{{ $rp($r['bunga']) }}</td>
-                                    <td class="px-3 py-2.5 text-center tabular-nums text-slate-500">{{ $r['tenor'] }} bln</td>
+                                    <td class="px-3 py-2.5 text-center tabular-nums text-slate-500">{{ $r['tenor'] ? $r['tenor'].' bln' : '—' }}</td>
                                     <td class="px-3 py-2.5 text-right tabular-nums text-slate-700">{{ $rp($r['pokok_dibayar']) }}</td>
                                     <td class="px-3 py-2.5 text-right tabular-nums text-slate-700">{{ $rp($r['bunga_dibayar']) }}</td>
                                     <td class="px-3 py-2.5 text-right tabular-nums font-medium text-slate-900">{{ $rp($r['sisa_pokok']) }}</td>
@@ -334,7 +358,8 @@
                         <div class="overflow-hidden rounded-xl border border-slate-200">
                             <div class="flex items-center justify-between gap-3 bg-slate-50 px-4 py-2.5">
                                 <span class="font-semibold text-slate-800">{{ $akun['akun']->kode_akun }} — {{ $akun['akun']->nama_akun }}</span>
-                                <span class="shrink-0 text-xs text-slate-500">Saldo awal: <span class="font-medium tabular-nums text-slate-700">{{ $dk($akun['saldo_awal']) }}</span></span>
+                                <span class="shrink-0 text-xs text-slate-500">Saldo awal: <span class="font-medium tabular-nums text-slate-700">{{ $dk($akun['saldo_awal']) }}</span>
+                                    · Saldo Akhir: <span class="font-medium tabular-nums text-slate-700">{{ $dk($akun['saldo_akhir']) }}</span></span>
                             </div>
                             @if ($akun['entries'] !== [])
                                 <div class="overflow-x-auto">
@@ -375,6 +400,67 @@
                 </div>
                 @break
         @endswitch
+
+        {{-- ============ LAPORAN TABEL (jurnal, neraca saldo, kas/bank, persediaan, piutang/hutang) ============ --}}
+        @if (in_array($type, ['jurnal-umum', 'neraca-saldo', 'buku-kas', 'buku-bank', 'kartu-stok', 'piutang-hutang'], true))
+                @php($ds = $this->dataset())
+                @php($cellNum = fn ($v) => (float) $v != 0 ? number_format((float) $v, 0, ',', '.') : '')
+                <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    @foreach ($ds['summary'] as $s)
+                        <div class="rounded-xl border border-t-4 border-slate-200 border-t-emerald-500 p-3">
+                            <p class="text-[11px] font-semibold uppercase text-slate-500">{{ $s['label'] }}</p>
+                            <p class="mt-1 text-lg font-bold tabular-nums text-slate-800">{{ $rp($s['value']) }}</p>
+                        </div>
+                    @endforeach
+                </div>
+                @isset($ds['status_label'])
+                    <p class="mt-3">
+                        <x-ui.badge :color="str_starts_with($ds['status_label'], 'TIDAK') ? 'red' : 'emerald'">{{ \Illuminate\Support\Str::before($ds['status_label'], ' —') }}</x-ui.badge>
+                    </p>
+                @endisset
+                @if ($ds['detail'])
+                    @php($numCols = $ds['num_cols'])
+                    <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-slate-50">
+                                <tr class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    @foreach ($ds['detail']['headers'] as $h)
+                                        <th class="px-3 py-2.5 whitespace-nowrap {{ isset($numCols[$loop->index]) ? 'text-right' : 'text-left' }}">{{ $h }}</th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 bg-white">
+                                @forelse ($ds['detail']['rows'] as $row)
+                                    <tr>
+                                        @foreach ($row as $cell)
+                                            @if (array_key_exists('num', $cell))
+                                                <td class="px-3 py-1.5 text-right tabular-nums whitespace-nowrap text-slate-700">{{ $cellNum($cell['num']) }}</td>
+                                            @else
+                                                <td class="px-3 py-1.5 text-slate-600">{{ $cell['text'] ?? '' }}</td>
+                                            @endif
+                                        @endforeach
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="{{ count($ds['detail']['headers']) }}" class="px-3 py-10 text-center text-slate-500">Tidak ada data pada periode ini.</td></tr>
+                                @endforelse
+                            </tbody>
+                            @isset($ds['detail']['foot'])
+                                <tfoot class="border-t-2 border-slate-300 bg-slate-50 font-semibold">
+                                    <tr>
+                                        @foreach ($ds['detail']['foot'] as $cell)
+                                            @if (array_key_exists('num', $cell))
+                                                <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ $cellNum($cell['num']) }}</td>
+                                            @else
+                                                <td class="px-3 py-2">{{ $cell['text'] ?? '' }}</td>
+                                            @endif
+                                        @endforeach
+                                    </tr>
+                                </tfoot>
+                            @endisset
+                        </table>
+                    </div>
+                @endif
+        @endif
 
         {{-- Tanda tangan --}}
         <div class="mt-10 flex justify-end">

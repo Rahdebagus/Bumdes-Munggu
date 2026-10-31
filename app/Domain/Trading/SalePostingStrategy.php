@@ -18,6 +18,9 @@ use App\Models\TransaksiBarang;
  * Penjualan tunai/kredit (dokumen08 §2). Dr Kas/bank (tunai) atau Piutang usaha
  * (kredit); Cr Penjualan (net) + pajak keluaran. Dr HPP; Cr Persediaan sebesar
  * nilai keluar aktual (moving average). Stok berkurang, tidak boleh negatif.
+ * Akun penjualan & HPP dipilih per kategori produk (config
+ * accounting.product_categories); produk jasa (lacak_stok=false) hanya
+ * mencatat pendapatan, tanpa mutasi stok/HPP.
  */
 class SalePostingStrategy implements PostingStrategy
 {
@@ -76,13 +79,29 @@ class SalePostingStrategy implements PostingStrategy
         $tanggal = $trx->tanggal->toDateString();
         $intents = [];
         $barangUpdate = [];
-        $revenue = '0';   // net (pendapatan penjualan)
+        $revenue = [];    // net per system_key akun penjualan
+        $hpp = [];        // HPP per system_key akun HPP
         $tax = '0';       // pajak keluaran
         $hppTotal = '0';  // total HPP
         $total = '0';     // total tagihan
 
         foreach ($items as $item) {
             $pid = $item->produk_id;
+            $p = $produk[$pid];
+            $net = Decimal::sub(Decimal::mul($item->kuantitas, $item->harga), $item->diskon);
+            $subtotal = Decimal::add($net, $item->pajak);
+            $salesKey = $p->salesKey();
+            $revenue[$salesKey] = Decimal::add($revenue[$salesKey] ?? '0', $net);
+            $tax = Decimal::add($tax, $item->pajak);
+            $total = Decimal::add($total, $subtotal);
+
+            if (! $p->lacak_stok) {
+                // Jasa: tanpa stok & HPP.
+                $barangUpdate[$item->id] = ['harga_pokok' => '0', 'nilai_pokok' => '0', 'subtotal' => $subtotal];
+
+                continue;
+            }
+
             $qtyOut = Decimal::of($item->kuantitas, Decimal::QTY);
             $qtyBefore = $running[$pid]['qty'];
             $nilaiBefore = $running[$pid]['nilai'];
@@ -99,9 +118,6 @@ class SalePostingStrategy implements PostingStrategy
             $saldoNilai = Decimal::sub($nilaiBefore, $nilaiKeluar);
             $avgAfter = $this->avg->average($saldoNilai, $saldoQty);
             $urutan = $running[$pid]['urutan'] + 1;
-
-            $net = Decimal::sub(Decimal::mul($item->kuantitas, $item->harga), $item->diskon);
-            $subtotal = Decimal::add($net, $item->pajak);
 
             $intents[] = [
                 'produk_id' => $pid,
@@ -128,26 +144,30 @@ class SalePostingStrategy implements PostingStrategy
             ];
 
             $running[$pid] = ['qty' => $saldoQty, 'nilai' => $saldoNilai, 'urutan' => $urutan, 'lastDate' => $tanggal];
-            $revenue = Decimal::add($revenue, $net);
-            $tax = Decimal::add($tax, $item->pajak);
+            $cogsKey = $p->cogsKey();
+            $hpp[$cogsKey] = Decimal::add($hpp[$cogsKey] ?? '0', $nilaiKeluar);
             $hppTotal = Decimal::add($hppTotal, $nilaiKeluar);
-            $total = Decimal::add($total, $subtotal);
         }
 
         $debitId = $trx->metode_pembayaran === 'kredit'
             ? $sys->id('trade_receivable')
             : ($trx->akun_kas_id ?? $sys->id('cash'));
 
-        $lines = [
-            new JournalLine($debitId, debit: $total, keterangan: 'Penjualan', kelompokArusKas: 'operasi'),
-            new JournalLine($sys->id('sales'), kredit: $revenue, keterangan: 'Pendapatan penjualan'),
-        ];
+        $lines = [new JournalLine($debitId, debit: $total, keterangan: 'Penjualan', kelompokArusKas: 'operasi')];
+        $revenue = array_filter($revenue, fn ($v) => Decimal::isPositive($v)) ?: ['sales' => '0'];
+        foreach ($revenue as $key => $amount) {
+            $lines[] = new JournalLine($sys->id($key), kredit: $amount, keterangan: 'Pendapatan penjualan');
+        }
         if (Decimal::isPositive($tax)) {
             $lines[] = new JournalLine($sys->id('tax_output'), kredit: $tax, keterangan: 'Pajak keluaran');
         }
-        // HPP (hanya jika ada nilai keluar)
+        // HPP per kategori (hanya jika ada nilai keluar)
+        foreach ($hpp as $key => $amount) {
+            if (Decimal::isPositive($amount)) {
+                $lines[] = new JournalLine($sys->id($key), debit: $amount, keterangan: 'HPP');
+            }
+        }
         if (Decimal::isPositive($hppTotal)) {
-            $lines[] = new JournalLine($sys->id('cogs'), debit: $hppTotal, keterangan: 'HPP');
             $lines[] = new JournalLine($sys->id('inventory'), kredit: $hppTotal, keterangan: 'Persediaan (HPP)');
         }
 

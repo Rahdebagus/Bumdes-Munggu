@@ -12,11 +12,15 @@ use Illuminate\Validation\ValidationException;
 /**
  * Mengunci saldo awal periode cutover. Menolak (lock mismatch) bila belum ada
  * saldo, tidak seimbang, atau rincian != akun kontrol. Sukses → set
- * opening_locked_at/by pada periode dan locked_at/by pada tiap baris.
+ * opening_locked_at/by pada periode dan locked_at/by pada tiap baris, serta
+ * menulis stok awal produk dari rincian stok (ApplyOpeningStock).
  */
 class LockOpeningBalance
 {
-    public function __construct(private OpeningReconciliation $reconciliation) {}
+    public function __construct(
+        private OpeningReconciliation $reconciliation,
+        private ApplyOpeningStock $openingStock,
+    ) {}
 
     public function handle(PeriodeAkuntansi $periode, User $actor): void
     {
@@ -45,6 +49,8 @@ class LockOpeningBalance
                     'lock' => "Rincian tidak sama dengan akun kontrol: {$akun}.",
                 ]);
             }
+
+            $this->openingStock->handle($p);
 
             $now = now();
             $p->update(['opening_locked_at' => $now, 'opening_locked_by' => $actor->id]);

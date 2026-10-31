@@ -34,8 +34,8 @@ class PeriodUiTest extends TestCase
         $this->periode = PeriodeAkuntansi::factory()->bulan(1)->create(['status' => 'terbuka']);
 
         $rows = [
-            ['kode_akun' => '1-1010', 'unit_kode' => '', 'saldo_debit' => '1000000', 'saldo_kredit' => '0', 'keterangan' => ''],
-            ['kode_akun' => '3-3010', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => '1000000', 'keterangan' => ''],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => '', 'saldo_debit' => '1000000', 'saldo_kredit' => '0', 'keterangan' => ''],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => '1000000', 'keterangan' => ''],
         ];
         (new CommitImport)->handle($this->periode, (new PreviewImport)->handle($rows), $this->admin);
         app(LockOpeningBalance::class)->handle($this->periode, $this->admin);

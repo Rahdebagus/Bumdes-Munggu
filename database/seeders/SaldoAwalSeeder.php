@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Saldo awal LATIHAN Rp30.000.000 + periode bulan saat seeder dijalankan.
+ * Saldo awal LATIHAN Rp50.000.000 + periode bulan saat seeder dijalankan.
  * Jalankan setelah master data dan akun admin tersedia:
  *
  *   php artisan db:seed --class=SaldoAwalSeeder --force
@@ -98,7 +98,7 @@ class SaldoAwalSeeder extends Seeder
             app(LockOpeningBalance::class)->handle($periode, $actor);
 
             $this->command?->info(
-                "Saldo awal LATIHAN Rp30.000.000 dikunci untuk {$mulai->format('Y-m')}; transaksi dapat diposting.",
+                "Saldo awal LATIHAN Rp50.000.000 dikunci untuk {$mulai->format('Y-m')}; transaksi dapat diposting.",
             );
         });
     }
@@ -107,11 +107,11 @@ class SaldoAwalSeeder extends Seeder
     private function openingRows(): array
     {
         return [
-            ['kode_akun' => '1-1010', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '5000000', 'saldo_kredit' => '0', 'keterangan' => 'Saldo latihan: kas unit dagang'],
-            ['kode_akun' => '1-1010', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '5000000', 'saldo_kredit' => '0', 'keterangan' => 'Saldo latihan: kas unit simpan pinjam'],
-            ['kode_akun' => '1-1020', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '20000000', 'saldo_kredit' => '0', 'keterangan' => 'Saldo latihan: bank unit dagang'],
-            ['kode_akun' => '3-3010', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '25000000', 'keterangan' => 'Saldo latihan: modal unit dagang'],
-            ['kode_akun' => '3-3010', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '0', 'saldo_kredit' => '5000000', 'keterangan' => 'Saldo latihan: modal unit simpan pinjam'],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '10000000', 'saldo_kredit' => '0', 'keterangan' => 'Saldo latihan: kas unit dagang'],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '5000000', 'saldo_kredit' => '0', 'keterangan' => 'Saldo latihan: kas unit simpan pinjam'],
+            ['kode_akun' => '1.1.01.02', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '35000000', 'saldo_kredit' => '0', 'keterangan' => 'Saldo latihan: bank unit dagang'],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '45000000', 'keterangan' => 'Saldo latihan: modal unit dagang'],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '0', 'saldo_kredit' => '5000000', 'keterangan' => 'Saldo latihan: modal unit simpan pinjam'],
         ];
     }
 }

@@ -17,7 +17,8 @@ use App\Models\TransaksiBarang;
  * Pembelian tunai/kredit (dokumen08 §2). Dr Persediaan; Cr Kas/bank (tunai)
  * atau Utang usaha (kredit). Stok bertambah; moving average dihitung ulang.
  * Pajak masukan default digabung ke biaya persediaan (mode kreditkan = tahap
- * lanjutan, eksplisit).
+ * lanjutan, eksplisit). Produk jasa (lacak_stok=false): tanpa stok, biaya
+ * langsung Dr HPP kategori (config accounting.product_categories).
  */
 class PurchasePostingStrategy implements PostingStrategy
 {
@@ -78,6 +79,7 @@ class PurchasePostingStrategy implements PostingStrategy
         $intents = [];
         $barangUpdate = [];
         $inventoryTotal = '0';
+        $directCost = []; // jasa tanpa stok: HPP per system_key
         $total = '0';
 
         foreach ($items as $item) {
@@ -85,6 +87,20 @@ class PurchasePostingStrategy implements PostingStrategy
             $net = Decimal::sub(Decimal::mul($item->kuantitas, $item->harga), $item->diskon);
             $subtotal = Decimal::add($net, $item->pajak);
             $nilaiMasuk = $subtotal; // pajak non-kreditkan → bagian biaya persediaan
+            $total = Decimal::add($total, $subtotal);
+
+            if (! $produk[$pid]->lacak_stok) {
+                // Jasa tanpa stok: biaya langsung ke HPP kategori.
+                $cogsKey = $produk[$pid]->cogsKey();
+                $directCost[$cogsKey] = Decimal::add($directCost[$cogsKey] ?? '0', $nilaiMasuk);
+                $barangUpdate[$item->id] = [
+                    'harga_pokok' => $this->avg->average($nilaiMasuk, $item->kuantitas),
+                    'nilai_pokok' => $nilaiMasuk,
+                    'subtotal' => $subtotal,
+                ];
+
+                continue;
+            }
 
             $qtyBefore = $running[$pid]['qty'];
             $nilaiBefore = $running[$pid]['nilai'];
@@ -121,17 +137,22 @@ class PurchasePostingStrategy implements PostingStrategy
 
             $running[$pid] = ['qty' => $saldoQty, 'nilai' => $saldoNilai, 'urutan' => $urutan, 'lastDate' => $tanggal];
             $inventoryTotal = Decimal::add($inventoryTotal, $nilaiMasuk);
-            $total = Decimal::add($total, $subtotal);
         }
 
         $lawanId = $trx->metode_pembayaran === 'kredit'
             ? $sys->id('trade_payable')
             : ($trx->akun_kas_id ?? $sys->id('cash'));
 
-        $journal = new JournalPlan(
-            new JournalLine($sys->id('inventory'), debit: $inventoryTotal, keterangan: 'Persediaan (pembelian)'),
-            new JournalLine($lawanId, kredit: $total, keterangan: 'Pembelian', kelompokArusKas: 'operasi'),
-        );
+        $lines = [];
+        if (Decimal::isPositive($inventoryTotal) || $directCost === []) {
+            $lines[] = new JournalLine($sys->id('inventory'), debit: $inventoryTotal, keterangan: 'Persediaan (pembelian)');
+        }
+        foreach ($directCost as $key => $amount) {
+            $lines[] = new JournalLine($sys->id($key), debit: $amount, keterangan: 'Pembelian jasa (HPP)');
+        }
+        $lines[] = new JournalLine($lawanId, kredit: $total, keterangan: 'Pembelian', kelompokArusKas: 'operasi');
+
+        $journal = new JournalPlan(...$lines);
 
         return $this->memo[$trx->id] = compact('journal', 'total', 'intents', 'produk', 'barangUpdate');
     }

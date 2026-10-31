@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Arsip build manual — aset dibangun ulang dengan `npm run build`
+/build.zip

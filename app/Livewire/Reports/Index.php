@@ -168,6 +168,28 @@ class Index extends Component
             $terlambat += $isTerlambat ? 1 : 0;
         }
 
+        // Pinjaman pedagang lama dari saldo awal (tanpa jadwal angsuran).
+        foreach (app(ReportService::class)->openingLoans($to, $this->unitId) as $o) {
+            $rows[] = [
+                'nomor' => $o['kode'],
+                'peminjam' => $o['peminjam'].' (saldo awal)',
+                'tanggal' => $o['tanggal'] ? Carbon::parse($o['tanggal'])->format('d/m/Y') : '—',
+                'pokok' => $o['pokok_awal'],
+                'bunga' => $o['bunga_dibayar'],
+                'persentase' => '',
+                'tenor' => null,
+                'pokok_dibayar' => $o['pokok_dibayar'],
+                'bunga_dibayar' => $o['bunga_dibayar'],
+                'sisa_pokok' => $o['sisa_pokok'],
+                'next' => '—',
+                'terlambat' => false,
+                'id' => null,
+            ];
+            $totalPokok += (float) $o['pokok_awal'];
+            $totalSisa += (float) $o['sisa_pokok'];
+            $aktif += (float) $o['sisa_pokok'] > 0 ? 1 : 0;
+        }
+
         $pendapatanBunga = app(ReportService::class)->labaRugi($from, $to, $this->unitId)['pendapatan_kredit'];
 
         return [
@@ -191,7 +213,7 @@ class Index extends Component
 
         // Pendapatan bunga bank: akun bernama tanpa system_key (kredit-normal).
         $bungaBank = 0.0;
-        $akunBungaBank = Akun::where('kode_akun', '4-4050')->value('id');
+        $akunBungaBank = Akun::where('kode_akun', '4.4.1')->value('id');
         if ($akunBungaBank) {
             $net = app(ReportService::class)->accountNet($from, $to, false, $this->unitId)[$akunBungaBank] ?? '0';
             $bungaBank = -(float) $net;
@@ -209,6 +231,28 @@ class Index extends Component
             'total' => (string) ($dagang + $bungaKredit + $bungaBank),
             'histori' => $histori,
         ];
+    }
+
+    /** Dataset generik (headers + rows) untuk laporan tabel: jurnal, neraca saldo, buku kas/bank, kartu stok, piutang/hutang. */
+    public function dataset(): array
+    {
+        [$from, $to] = $this->range();
+
+        $ds = app(ReportDataset::class)->build($this->type, [
+            'from' => $from, 'to' => $to, 'asOf' => $to, 'unitId' => $this->unitId, 'cutoverFrom' => $this->cutover(),
+        ]);
+
+        // Kolom angka (rata kanan) = kolom yang berisi 'num' di baris mana pun.
+        $ds['num_cols'] = [];
+        foreach (array_merge($ds['detail']['rows'] ?? [], [$ds['detail']['foot'] ?? []]) as $row) {
+            foreach ($row as $i => $cell) {
+                if (array_key_exists('num', $cell)) {
+                    $ds['num_cols'][$i] = true;
+                }
+            }
+        }
+
+        return $ds;
     }
 
     public function units()

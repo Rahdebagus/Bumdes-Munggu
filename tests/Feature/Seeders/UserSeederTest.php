@@ -25,13 +25,13 @@ class UserSeederTest extends TestCase
 
         $this->assertSame(2, User::count());
 
-        $admin = User::where('email', 'admin@bumdes-munggu.test')->firstOrFail();
+        $admin = User::where('email', 'abumdesmunggu@gmail.com')->firstOrFail();
         $this->assertSame('admin', $admin->role->value);
         $this->assertSame('aktif', $admin->status->value);
         $this->assertTrue(Hash::check('rahasia-admin-123', $admin->password));
         $this->assertNotSame('rahasia-admin-123', $admin->password, 'password harus ter-hash');
 
-        $pimpinan = User::where('email', 'pimpinan@bumdes-munggu.test')->firstOrFail();
+        $pimpinan = User::where('email', 'pbumdesmunggu@gmail.com')->firstOrFail();
         $this->assertSame('pimpinan', $pimpinan->role->value);
         $this->assertSame('aktif', $pimpinan->status->value);
         $this->assertTrue(Hash::check('rahasia-pimpinan-123', $pimpinan->password));
@@ -42,14 +42,14 @@ class UserSeederTest extends TestCase
         $this->setPasswords();
         $this->seed(UserSeeder::class);
 
-        $adminHashBefore = User::where('email', 'admin@bumdes-munggu.test')->value('password');
+        $adminHashBefore = User::where('email', 'abumdesmunggu@gmail.com')->value('password');
 
         // Ubah config password, jalankan lagi — akun lama tidak boleh berubah.
         $this->setPasswords('password-baru-999', 'password-baru-888');
         $this->seed(UserSeeder::class);
 
         $this->assertSame(2, User::count(), 'tidak ada duplikasi');
-        $this->assertSame($adminHashBefore, User::where('email', 'admin@bumdes-munggu.test')->value('password'), 'password tidak diubah');
+        $this->assertSame($adminHashBefore, User::where('email', 'abumdesmunggu@gmail.com')->value('password'), 'password tidak diubah');
     }
 
     public function test_reports_conflict_when_email_has_different_role(): void
@@ -58,7 +58,7 @@ class UserSeederTest extends TestCase
 
         $existing = User::create([
             'nama' => 'Akun Lama',
-            'email' => 'admin@bumdes-munggu.test',
+            'email' => 'abumdesmunggu@gmail.com',
             'role' => 'pimpinan',
             'status' => 'aktif',
             'password' => Hash::make('password-lama-123'),
@@ -71,7 +71,7 @@ class UserSeederTest extends TestCase
         $this->assertTrue(Hash::check('password-lama-123', $existing->password), 'password tidak diubah');
 
         // Akun pimpinan tetap dibuat normal.
-        $this->assertDatabaseHas('users', ['email' => 'pimpinan@bumdes-munggu.test', 'role' => 'pimpinan']);
+        $this->assertDatabaseHas('users', ['email' => 'pbumdesmunggu@gmail.com', 'role' => 'pimpinan']);
     }
 
     public function test_halts_when_password_not_configured_without_creating_any(): void
@@ -82,7 +82,7 @@ class UserSeederTest extends TestCase
             $this->seed(UserSeeder::class);
             $this->fail('Seharusnya berhenti saat password pimpinan belum diatur.');
         } catch (RuntimeException $e) {
-            $this->assertStringContainsString('pimpinan@bumdes-munggu.test', $e->getMessage());
+            $this->assertStringContainsString('pbumdesmunggu@gmail.com', $e->getMessage());
         }
 
         $this->assertSame(0, User::count(), 'tidak ada akun dibuat saat password belum lengkap');

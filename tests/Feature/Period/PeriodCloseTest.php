@@ -58,8 +58,8 @@ class PeriodCloseTest extends TestCase
     private function lockOpening(PeriodeAkuntansi $periode, string $kas, string $modal): void
     {
         $rows = [
-            ['kode_akun' => '1-1010', 'unit_kode' => '', 'saldo_debit' => $kas, 'saldo_kredit' => '0', 'keterangan' => ''],
-            ['kode_akun' => '3-3010', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => $modal, 'keterangan' => ''],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => '', 'saldo_debit' => $kas, 'saldo_kredit' => '0', 'keterangan' => ''],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => $modal, 'keterangan' => ''],
         ];
         (new CommitImport)->handle($periode, (new PreviewImport)->handle($rows), $this->actor);
         app(LockOpeningBalance::class)->handle($periode, $this->actor);

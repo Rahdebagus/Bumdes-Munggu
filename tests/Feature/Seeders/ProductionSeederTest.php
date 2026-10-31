@@ -39,8 +39,8 @@ class ProductionSeederTest extends TestCase
         $this->seed(ProductionSeeder::class);
 
         // Master data lengkap (unit + chart of accounts dengan seluruh system_key).
-        $this->assertSame(2, UnitUsaha::count());
-        $this->assertSame(32, Akun::count());
+        $this->assertSame(7, UnitUsaha::count());
+        $this->assertSame(47, Akun::count());
         foreach (config('accounting.system_keys') as $key) {
             $this->assertDatabaseHas('akun', ['system_key' => $key, 'is_active' => true]);
         }
@@ -81,8 +81,8 @@ class ProductionSeederTest extends TestCase
         $this->setConfig(['seed.admin_password' => 'password-baru-999']);
         $this->seed(ProductionSeeder::class);
 
-        $this->assertSame(2, UnitUsaha::count());
-        $this->assertSame(32, Akun::count());
+        $this->assertSame(7, UnitUsaha::count());
+        $this->assertSame(47, Akun::count());
         $this->assertSame(2, User::count());
         $this->assertSame(1, PeriodeAkuntansi::count());
         $this->assertSame($hashBefore, User::where('email', 'admin@bumdesmunggu.id')->value('password'), 'password tidak diubah');
@@ -94,7 +94,7 @@ class ProductionSeederTest extends TestCase
         $this->seed(ProductionSeeder::class);
 
         $this->assertSame(0, PeriodeAkuntansi::count(), 'periode dibuat manual lewat menu Periode Akuntansi');
-        $this->assertSame(32, Akun::count(), 'master data tetap dibuat');
+        $this->assertSame(47, Akun::count(), 'master data tetap dibuat');
         $this->assertSame(2, User::count());
     }
 

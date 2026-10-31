@@ -65,18 +65,18 @@ saldo awal tidak bisa diubah lagi.
 
 | Akun | Debit | Kredit |
 |------|------:|-------:|
-| Kas | 5.000.000 | |
-| Bank BUMDes | 25.000.000 | |
-| Modal Dana Desa | | 25.000.000 |
-| Dana Cadangan | | 3.000.000 |
-| Dana Pendidikan | | 2.000.000 |
-| **Total** | **30.000.000** | **30.000.000** |
+| 1.1.01.01 Kas Tunai | 10.000.000 | |
+| 1.1.01.02 Kas di Bank BPD | 40.000.000 | |
+| 3.1.01.00 Modal Desa Munggu | | 50.000.000 |
+| **Total** | **50.000.000** | **50.000.000** |
+
+Format Excel/CSV beserta petunjuk & daftar kode akun dapat diunduh langsung dari menu **Saldo Awal** (tombol *Unduh format*).
 
 **Template siap pakai** tersedia di `docs/templates/`:
 
 | Berkas | Isi |
 |---|---|
-| `saldo-awal-mulai-cepat.xlsx` / `.csv` | Kas, Bank, Modal saja (30.000.000 seimbang) — tanpa akun kontrol, jadi bisa langsung dikunci |
+| `saldo-awal-mulai-cepat.xlsx` / `.csv` | Kas, Bank, Modal saja (50.000.000 seimbang) — tanpa akun kontrol, jadi bisa langsung dikunci |
 | `saldo-awal-template.xlsx` | Kerangka kosong berisi akun-akun umum untuk diisi sendiri |
 
 Angka ditulis polos tanpa pemisah ribuan (`5000000`, bukan `5.000.000`); titik dipakai untuk desimal.

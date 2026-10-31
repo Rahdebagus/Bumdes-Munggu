@@ -73,10 +73,10 @@ trait BuildsFixtureA
     private function lockOpening(): void
     {
         $rows = [
-            ['kode_akun' => '1-1010', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '8000000', 'saldo_kredit' => '0'],
-            ['kode_akun' => '3-3010', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '8000000'],
-            ['kode_akun' => '1-1010', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '2000000', 'saldo_kredit' => '0'],
-            ['kode_akun' => '3-3010', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '0', 'saldo_kredit' => '2000000'],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '8000000', 'saldo_kredit' => '0'],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => 'UNIT-DAGANG', 'saldo_debit' => '0', 'saldo_kredit' => '8000000'],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '2000000', 'saldo_kredit' => '0'],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => 'UNIT-KREDIT', 'saldo_debit' => '0', 'saldo_kredit' => '2000000'],
         ];
         $full = array_map(fn ($r) => array_merge(['keterangan' => ''], $r), $rows);
 

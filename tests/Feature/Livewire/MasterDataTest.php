@@ -66,7 +66,7 @@ class MasterDataTest extends TestCase
     {
         $unit = UnitUsaha::factory()->create();
 
-        $produk = (new SaveProduct)->handle([
+        $produk = app(SaveProduct::class)->handle([
             'unit_usaha_id' => $unit->id,
             'kode_produk' => 'PRD-X',
             'nama_produk' => 'Produk X',

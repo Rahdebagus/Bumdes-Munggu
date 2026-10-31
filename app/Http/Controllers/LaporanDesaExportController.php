@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Unduh laporan omzet desa RESMI dari snapshot tersimpan (bukan live query,
- * dokumen10 §Alur snapshot langkah 5). File privat (disk local).
+ * dokumen10 §Alur snapshot langkah 5). File privat (disk local) dihapus
+ * setelah terkirim; snapshot resminya tetap di tabel laporan_desa.
  */
 class LaporanDesaExportController extends Controller
 {
@@ -21,6 +22,8 @@ class LaporanDesaExportController extends Controller
             ? $exporter->laporanDesaPdf($laporan)
             : $exporter->laporanDesaXlsx($laporan);
 
-        return Storage::disk('local')->download($result['path'], $result['filename']);
+        return response()
+            ->download(Storage::disk('local')->path($result['path']), $result['filename'])
+            ->deleteFileAfterSend();
     }
 }

@@ -6,6 +6,7 @@ use App\Domain\Accounting\JournalPlanRegistry;
 use App\Domain\Accounting\Planners\ManualJournalPlanner;
 use App\Domain\Cash\CashPostingStrategy;
 use App\Domain\FixedAssets\DepreciationStrategy;
+use App\Domain\Inventory\OpeningStockStrategy;
 use App\Domain\Inventory\OpnameAdjustmentStrategy;
 use App\Domain\Lending\InstallmentPaymentStrategy;
 use App\Domain\Lending\LoanDisbursementStrategy;
@@ -38,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(TransaksiJenis::Angsuran->value, $app->make(InstallmentPaymentStrategy::class));
             $registry->register(TransaksiJenis::Penyusutan->value, $app->make(DepreciationStrategy::class));
             $registry->registerSource('stok_opname', $app->make(OpnameAdjustmentStrategy::class));
+            $registry->registerSource('stok_awal', $app->make(OpeningStockStrategy::class));
 
             return $registry;
         });

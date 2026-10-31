@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Unduh laporan PDF/XLSX dari ReportExporter (dataset ReportService yang sama).
- * File disimpan privat (disk local), lalu di-stream sebagai attachment.
+ * File dibuat privat (disk local), dikirim sebagai attachment, lalu dihapus:
+ * isinya selalu dihasilkan ulang dari data terkini sehingga tidak perlu disimpan.
  */
 class ReportExportController extends Controller
 {
@@ -34,6 +35,8 @@ class ReportExportController extends Controller
             ? $exporter->pdf($validated['type'], $filters)
             : $exporter->xlsx($validated['type'], $filters);
 
-        return Storage::disk('local')->download($result['path'], $result['filename']);
+        return response()
+            ->download(Storage::disk('local')->path($result['path']), $result['filename'])
+            ->deleteFileAfterSend();
     }
 }

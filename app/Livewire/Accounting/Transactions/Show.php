@@ -2,12 +2,12 @@
 
 namespace App\Livewire\Accounting\Transactions;
 
-use App\Domain\Accounting\PostingService;
+use App\Domain\Accounting\DocumentActions;
+use App\Domain\Accounting\PostDocument;
 use App\Domain\Accounting\ReverseTransaction;
 use App\Domain\Evidence\UploadEvidence;
 use App\Domain\Evidence\VerifyEvidence;
 use App\Domain\Shared\DomainException;
-use App\Models\AlokasiPelunasan;
 use App\Models\BuktiTransaksi;
 use App\Models\MutasiStok;
 use App\Models\Transaksi;
@@ -41,29 +41,54 @@ class Show extends Component
         $this->transaksi = $transaksi;
     }
 
-    public function post(PostingService $service): void
+    public function post(PostDocument $poster): void
     {
         $this->authorize('perform-admin-mutation');
 
-        $trx = Transaksi::with(['details', 'barang'])->findOrFail($this->transaksi->id);
-        $payload = [
-            'id' => $trx->id,
-            'version' => $trx->version,
-            'barang' => $trx->barang->map(fn ($b) => [$b->produk_id, (string) $b->kuantitas, (string) $b->harga, (string) $b->diskon, (string) $b->pajak])->all(),
-            'details' => $trx->details->map(fn ($d) => [$d->akun_id, (string) $d->debit, (string) $d->kredit])->all(),
-            'alokasi' => AlokasiPelunasan::where('pembayaran_transaksi_id', $trx->id)
-                ->get()->map(fn ($a) => [$a->target_key, (string) $a->nominal])->all(),
-        ];
-        $hash = hash('sha256', (string) json_encode($payload));
-        $key = 'post:'.$trx->id.':'.$trx->version;
-
         try {
-            $service->post($trx, $trx->version, auth()->user(), $key, $hash);
-            session()->flash('status', 'Transaksi diposting.');
+            $poster->handle($this->transaksi, auth()->user());
+            $this->dispatch('toast', message: "Transaksi {$this->transaksi->nomor_transaksi} diposting — jurnal terbentuk.");
             $this->transaksi->refresh();
         } catch (DomainException $e) {
             $this->addError('post', $e->getMessage());
         }
+    }
+
+    public function deleteDraft(DocumentActions $actions)
+    {
+        $this->authorize('perform-admin-mutation');
+
+        try {
+            $nomor = $this->transaksi->nomor_transaksi;
+            $actions->deleteDraft($this->transaksi, auth()->user());
+        } catch (DomainException $e) {
+            $this->addError('post', $e->getMessage());
+
+            return null;
+        }
+
+        session()->flash('status', "Draft {$nomor} dihapus.");
+
+        return $this->redirectRoute('transactions.index', navigate: true);
+    }
+
+    /** Batal Posting: jurnal pembalik + salinan draft yang langsung dibuka untuk diedit. */
+    public function cancelPosting(DocumentActions $actions)
+    {
+        $this->authorize('perform-admin-mutation');
+        $this->validate(['reverseReason' => ['required', 'string', 'min:3']]);
+
+        try {
+            $draft = $actions->cancelPosting($this->transaksi, auth()->user(), $this->reverseReason);
+        } catch (DomainException $e) {
+            $this->addError('reverse', $e->getMessage());
+
+            return null;
+        }
+
+        session()->flash('status', "Posting {$this->transaksi->nomor_transaksi} dibatalkan (jurnal pembalik dibuat). Draft koreksi {$draft->nomor_transaksi} siap diedit.");
+
+        return $this->redirect(DocumentActions::editUrl($draft), navigate: true);
     }
 
     public function reverse(ReverseTransaction $service): void
@@ -78,7 +103,7 @@ class Show extends Component
         try {
             $service->reverse($orig, $orig->tanggal->toDateString(), $this->reverseReason, auth()->user(), $key, $hash);
             $this->reset('confirmingReverse', 'reverseReason');
-            session()->flash('status', 'Transaksi dibalik.');
+            $this->dispatch('toast', message: 'Transaksi dibatalkan — jurnal pembalik dibuat.');
             $this->transaksi->refresh();
         } catch (DomainException $e) {
             $this->addError('reverse', $e->getMessage());
@@ -128,6 +153,8 @@ class Show extends Component
             // Reverse mendukung semua jenis (jurnal, dagang, kas); dependensi
             // (mutasi stok terbaru, pelunasan dulu) ditegakkan domain.
             'canReverse' => true,
+            'isFormDocument' => DocumentActions::isFormDocument($trx),
+            'editUrl' => DocumentActions::editUrl($trx),
         ]);
     }
 }

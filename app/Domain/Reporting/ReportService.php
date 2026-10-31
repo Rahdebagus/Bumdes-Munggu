@@ -2,14 +2,16 @@
 
 namespace App\Domain\Reporting;
 
+use App\Domain\Cash\SettlementQuery;
+use App\Domain\Inventory\StockSnapshot;
+use App\Domain\OpeningBalance\OpeningItems;
 use App\Domain\Shared\Decimal;
+use App\Enums\SaldoRincianJenis;
 use App\Models\Akun;
 use App\Models\AlokasiPelunasan;
 use App\Models\AsetTetap;
 use App\Models\BuktiTransaksi;
-use App\Models\MutasiStok;
 use App\Models\Pinjaman;
-use App\Models\Produk;
 use App\Models\SaldoAwalAkun;
 use App\Models\StokOpname;
 use App\Models\Transaksi;
@@ -461,7 +463,54 @@ class ReportService
             $totalSisaTagihan = Decimal::add($totalSisaTagihan, $sisaTagihan);
         }
 
+        // Pinjaman pedagang lama dari saldo awal: tanpa jadwal, sisa tagihan = sisa pokok.
+        foreach ($this->openingLoans($asOf, $unitId) as $o) {
+            $rows[] = [
+                'nomor' => $o['kode'],
+                'peminjam' => $o['peminjam'],
+                'pokok_awal' => $o['pokok_awal'],
+                'pokok_dibayar' => $o['pokok_dibayar'],
+                'bunga_dibayar' => $o['bunga_dibayar'],
+                'denda_dibayar' => $o['denda_dibayar'],
+                'sisa_pokok' => $o['sisa_pokok'],
+                'sisa_tagihan' => $o['sisa_pokok'],
+                'status' => Decimal::isPositive($o['sisa_pokok']) ? 'aktif (saldo awal)' : 'lunas (saldo awal)',
+            ];
+            $totalSisaPokok = Decimal::add($totalSisaPokok, $o['sisa_pokok']);
+            $totalSisaTagihan = Decimal::add($totalSisaTagihan, $o['sisa_pokok']);
+        }
+
         return ['rows' => $rows, 'total_sisa_pokok' => $totalSisaPokok, 'total_sisa_tagihan' => $totalSisaTagihan];
+    }
+
+    /**
+     * Pinjaman pedagang lama (rincian saldo awal jenis pinjaman) beserta setoran
+     * pokok/bunga/denda yang terposting s/d as_of.
+     *
+     * @return array<int, array{id: int, kode: string, peminjam: string, tanggal: ?string, pokok_awal: string, pokok_dibayar: string, bunga_dibayar: string, denda_dibayar: string, sisa_pokok: string}>
+     */
+    public function openingLoans(string $asOf, ?int $unitId = null): array
+    {
+        $items = app(OpeningItems::class)->outstanding(SaldoRincianJenis::Pinjaman, $asOf, unitId: $unitId, termasukLunas: true);
+
+        $bayar = AlokasiPelunasan::query()
+            ->whereIn('opening_rincian_id', $items->pluck('rincian.id'))
+            ->whereHas('pembayaranTransaksi', fn ($q) => $q->whereNotNull('posted_at')->where('status', 'posted')->whereDate('tanggal', '<=', $asOf))
+            ->groupBy('opening_rincian_id')
+            ->selectRaw('opening_rincian_id, SUM(bunga) as bunga, SUM(denda) as denda')
+            ->get()->keyBy('opening_rincian_id');
+
+        return $items->map(fn ($row) => [
+            'id' => $row['rincian']->id,
+            'kode' => $row['rincian']->kode_referensi,
+            'peminjam' => $row['rincian']->pihak?->nama ?? '—',
+            'tanggal' => $row['rincian']->tanggal_asal?->toDateString(),
+            'pokok_awal' => Decimal::of((string) $row['rincian']->nominal),
+            'pokok_dibayar' => $row['dibayar'],
+            'bunga_dibayar' => Decimal::of((string) ($bayar[$row['rincian']->id]->bunga ?? '0')),
+            'denda_dibayar' => Decimal::of((string) ($bayar[$row['rincian']->id]->denda ?? '0')),
+            'sisa_pokok' => $row['sisa'],
+        ])->all();
     }
 
     /**
@@ -610,61 +659,45 @@ class ReportService
 
     private function inventorySubledger(string $asOf, ?int $unitId): string
     {
-        $produk = Produk::query()->when($unitId, fn ($q) => $q->where('unit_usaha_id', $unitId))->pluck('id');
-        $total = '0';
-        foreach ($produk as $id) {
-            $last = MutasiStok::where('produk_id', $id)
-                ->whereDate('tanggal', '<=', $asOf)
-                ->orderByDesc('urutan')->first();
-            if ($last) {
-                $total = Decimal::add($total, (string) $last->saldo_nilai);
-            }
-        }
-
-        return $total;
+        // Saldo nilai kartu stok terakhir per produk s/d as_of (satu query).
+        return app(StockSnapshot::class)->terakhir($asOf, unitId: $unitId)
+            ->reduce(fn ($total, $m) => Decimal::add($total, (string) $m->saldo_nilai), '0');
     }
 
+    /** Σ sisa nota penjualan kredit s/d as_of + sisa nota piutang saldo awal (cutover). */
     private function receivableSubledger(string $asOf, ?int $unitId): string
     {
-        // Σ (total invoice penjualan kredit − alokasi pelunasan terposting) s/d as_of.
-        $invoices = Transaksi::where('jenis_transaksi', 'penjualan')
-            ->where('metode_pembayaran', 'kredit')
-            ->whereNotNull('posted_at')->where('status', 'posted')
-            ->whereDate('tanggal', '<=', $asOf)
-            ->when($unitId, fn ($q) => $q->where('unit_usaha_id', $unitId))
-            ->get(['id', 'total']);
-
-        $total = '0';
-        foreach ($invoices as $inv) {
-            $alokasi = AlokasiPelunasan::where('invoice_transaksi_id', $inv->id)
-                ->whereHas('pembayaranTransaksi', fn ($q) => $q->whereNotNull('posted_at')->where('status', 'posted')
-                    ->whereDate('tanggal', '<=', $asOf))
-                ->sum('nominal');
-            $total = Decimal::add($total, Decimal::sub((string) $inv->total, (string) $alokasi));
-        }
-
-        return $total;
+        return Decimal::add(
+            $this->creditInvoiceOutstanding('penjualan', $asOf, $unitId),
+            app(OpeningItems::class)->totalSisa(SaldoRincianJenis::PiutangUsaha, $asOf, $unitId),
+        );
     }
 
+    /** Σ sisa nota pembelian kredit s/d as_of + sisa nota utang saldo awal (cutover). */
     private function payableSubledger(string $asOf, ?int $unitId): string
     {
-        $invoices = Transaksi::where('jenis_transaksi', 'pembelian')
+        return Decimal::add(
+            $this->creditInvoiceOutstanding('pembelian', $asOf, $unitId),
+            app(OpeningItems::class)->totalSisa(SaldoRincianJenis::UtangUsaha, $asOf, $unitId),
+        );
+    }
+
+    /** Σ (total invoice kredit − alokasi pelunasan terposting) s/d as_of; alokasi dijumlah sekali jalan. */
+    private function creditInvoiceOutstanding(string $jenis, string $asOf, ?int $unitId): string
+    {
+        $invoices = Transaksi::where('jenis_transaksi', $jenis)
             ->where('metode_pembayaran', 'kredit')
             ->whereNotNull('posted_at')->where('status', 'posted')
             ->whereDate('tanggal', '<=', $asOf)
             ->when($unitId, fn ($q) => $q->where('unit_usaha_id', $unitId))
             ->get(['id', 'total']);
 
-        $total = '0';
-        foreach ($invoices as $inv) {
-            $alokasi = AlokasiPelunasan::where('invoice_transaksi_id', $inv->id)
-                ->whereHas('pembayaranTransaksi', fn ($q) => $q->whereNotNull('posted_at')->where('status', 'posted')
-                    ->whereDate('tanggal', '<=', $asOf))
-                ->sum('nominal');
-            $total = Decimal::add($total, Decimal::sub((string) $inv->total, (string) $alokasi));
-        }
+        $terbayar = app(SettlementQuery::class)->invoiceAllocatedMany($invoices->pluck('id')->all(), $asOf);
 
-        return $total;
+        return $invoices->reduce(
+            fn ($total, $inv) => Decimal::add($total, Decimal::sub((string) $inv->total, $terbayar[$inv->id] ?? '0')),
+            '0',
+        );
     }
 
     private function assetSubledger(string $asOf, ?int $unitId): string

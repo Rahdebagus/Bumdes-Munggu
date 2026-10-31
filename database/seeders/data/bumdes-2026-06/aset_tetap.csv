@@ -1,0 +1,8 @@
+kode,nama,kelompok,tanggal_perolehan,unit,harga_perolehan,umur_bulan,akumulasi
+AST-001,Printer,inventaris,2019-01-29,1,1435000.00,48,1435000.00
+AST-002,Laptop,inventaris,2019-11-12,1,4500000.00,48,4500000.00
+AST-003,Laptop,inventaris,2024-03-05,2,16480000.00,48,9615200.00
+AST-004,Printer,inventaris,2026-03-30,1,2199000.00,48,138000.00
+AST-005,Sepeda,aktiva,2019-07-14,10,20100000.00,48,20100000.00
+AST-006,Bebek2 an,aktiva,2020-12-10,5,46350000.00,48,46350000.00
+AST-007,Baliho II,aktiva,2023-01-24,1,4000000.00,10,4000000.00

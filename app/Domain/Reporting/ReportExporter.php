@@ -53,7 +53,9 @@ class ReportExporter
     private function renderPdf(array $data): array
     {
         $html = view('reports.print', ['data' => $data])->render();
-        $pdf = Pdf::loadHTML($html)->setPaper('a4');
+        // Tabel rincian lebar (jurnal, neraca saldo, kartu stok) → lanskap.
+        $wide = count($data['detail']['headers'] ?? []) > 6;
+        $pdf = Pdf::loadHTML($html)->setPaper('a4', $wide ? 'landscape' : 'portrait');
 
         $filename = $this->filename($data['type'], $data, 'pdf');
         $path = 'laporan/'.Str::ulid().'_'.$filename;

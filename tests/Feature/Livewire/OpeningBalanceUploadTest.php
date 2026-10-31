@@ -63,7 +63,7 @@ class OpeningBalanceUploadTest extends TestCase
         $this->assertSame(5, $preview['row_count']);
         $this->assertFalse($preview['has_errors']);
         $this->assertTrue($preview['balanced']);
-        $this->assertSame('30000000.00', $preview['total_debit']);
+        $this->assertSame('50000000.00', $preview['total_debit']);
 
         $komponen->call('commit')->assertHasNoErrors();
         $this->assertSame(5, SaldoAwalAkun::where('periode_id', $periode->id)->count());

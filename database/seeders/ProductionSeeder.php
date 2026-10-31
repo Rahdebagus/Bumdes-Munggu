@@ -38,7 +38,8 @@ class ProductionSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    public function run(): void
+    /** @param  bool  $ringkasan  false bila dipanggil seeder lain yang mencetak ringkasannya sendiri */
+    public function run(bool $ringkasan = true): void
     {
         $this->preflight();
         $this->warnIfDemoDataPresent();
@@ -47,7 +48,9 @@ class ProductionSeeder extends Seeder
         $this->call(UserSeeder::class);
         $this->seedPeriodeAwal();
 
-        $this->summary();
+        if ($ringkasan) {
+            $this->summary();
+        }
     }
 
     /**
@@ -168,7 +171,7 @@ class ProductionSeeder extends Seeder
             '1. Kosongkan SEED_ADMIN_PASSWORD & SEED_PIMPINAN_PASSWORD di .env, lalu `php artisan config:clear` (password tidak perlu tersimpan di server).',
             '2. Login sebagai Admin → Master Data → Unit Usaha: perbaiki nama unit & penanggung jawab sesuai BUMDes.',
             '3. Tinjau chart of accounts (Master Data → Akun) dan mapping config/accounting.php bersama pengelola.',
-            '4. Isi pihak & produk nyata lewat Master Data (seeder sengaja tidak membuat data contoh).',
+            '4. Isi pihak lewat Master Data. Produk BUMDes: `php artisan db:seed --class=ProdukBumdesSeeder --force` atau `php artisan produk:import file.xlsx --stok-awal=YYYY-MM-DD`.',
             '5. Impor saldo awal cutover di menu Saldo Awal, periksa keseimbangan, lalu KUNCI.',
             '6. Tambah akun pengguna lain bila perlu: `php artisan app:create-user`.',
         ] as $line) {

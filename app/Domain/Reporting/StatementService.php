@@ -30,6 +30,7 @@ class StatementService
         $pendapatanLain = $this->groupRows('pendapatan_lain', $movement);
         $hppRows = $this->groupRows('hpp', $movement);
         $beban = $this->groupRows('beban', $movement);
+        $bebanNonOp = $this->groupRows('beban_non_operasional', $movement);
         $pajak = $this->groupRows('beban_pajak', $movement);
 
         // Skedul HPP: persediaan awal/akhir dari saldo sistem (dengan opening).
@@ -42,7 +43,7 @@ class StatementService
 
         $labaKotor = Decimal::sub($pendapatan['total'], $hpp);
         $labaSetelahLain = Decimal::add($labaKotor, $pendapatanLain['total']);
-        $labaSebelumPajak = Decimal::sub($labaSetelahLain, $beban['total']);
+        $labaSebelumPajak = Decimal::sub(Decimal::sub($labaSetelahLain, $beban['total']), $bebanNonOp['total']);
         $labaBersih = Decimal::sub($labaSebelumPajak, $pajak['total']);
 
         return [
@@ -53,11 +54,13 @@ class StatementService
                 'barang_tersedia' => $barangTersedia,
                 'persediaan_akhir' => Decimal::of($persediaanAkhir),
                 'hpp' => $hpp,
+                'rows' => $hppRows['rows'], // HPP per kategori (Konsumsi/Perdagangan/ATK/…)
             ],
             'laba_kotor' => $labaKotor,
             'pendapatan_lain' => $pendapatanLain,
             'laba_setelah_lain' => $labaSetelahLain,
             'beban' => $beban,
+            'beban_non_operasional' => $bebanNonOp,
             'laba_sebelum_pajak' => $labaSebelumPajak,
             'pajak' => $pajak,
             'laba_bersih' => $labaBersih,

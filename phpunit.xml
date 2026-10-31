@@ -23,10 +23,16 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- Tes memakai MariaDB nyata (dokumen03/11), bukan sqlite in-memory. -->
-        <env name="DB_CONNECTION" value="mariadb"/>
-        <env name="DB_DATABASE" value="bumdes_munggu_test"/>
-        <env name="DB_URL" value=""/>
+        <!-- Tes memakai MariaDB nyata (dokumen03/11), bukan sqlite in-memory.
+             force="true" pada <env> dan <server> (Laravel membaca $_SERVER lebih
+             dulu): tes (RefreshDatabase = migrate:fresh) tidak pernah ikut variabel
+             lingkungan shell, mis. DB_DATABASE produksi yang sedang diekspor. -->
+        <env name="DB_CONNECTION" value="mariadb" force="true"/>
+        <env name="DB_DATABASE" value="bumdes_munggu_test" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
+        <server name="DB_CONNECTION" value="mariadb" force="true"/>
+        <server name="DB_DATABASE" value="bumdes_munggu_test" force="true"/>
+        <server name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

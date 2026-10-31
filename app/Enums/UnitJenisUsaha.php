@@ -10,4 +10,5 @@ enum UnitJenisUsaha: string
 
     case Dagang = 'dagang';
     case Kredit = 'kredit';
+    case Jasa = 'jasa';
 }

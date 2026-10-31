@@ -60,6 +60,68 @@
         <div class="mt-4">{{ $angsuran->links() }}</div>
     </x-ui.card>
 
+    @if ($pinjamanLama->isNotEmpty() || $lamaPokok !== [])
+        <x-ui.card title="Pinjaman Lama (Saldo Awal)" subtitle="Setoran mingguan pedagang pantai atas pinjaman sebelum aplikasi dipakai. Isi pokok/bunga/denda nasabah yang menyetor, lalu Terima & Posting — satu bukti kas untuk semua nasabah. Jurnal: D Kas/Bank — K Piutang Pedagang Pantai (pokok), K Pendapatan Bunga/Denda.">
+            @error('lama')<div class="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{{ $message }}</div>@enderror
+            <div class="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">Tanggal Setor</span>
+                    <input type="date" wire:model="lamaTanggal" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
+                    @error('lamaTanggal')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                </label>
+                <label class="block">
+                    <span class="text-xs font-medium text-slate-500">Masuk ke</span>
+                    <select wire:model="lamaKasId" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
+                        @foreach ($akunKas as $k)
+                            <option value="{{ $k->id }}">{{ $k->kode_akun }} — {{ $k->nama_akun }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead class="bg-slate-50">
+                        <tr class="text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            <th class="px-3 py-3">Kode</th>
+                            <th class="px-3 py-3">Nasabah</th>
+                            <th class="px-3 py-3">Tgl Pinjam</th>
+                            <th class="px-3 py-3 text-right">Sisa Pokok</th>
+                            <th class="w-32 px-3 py-3 text-right">Pokok</th>
+                            <th class="w-32 px-3 py-3 text-right">Bunga</th>
+                            <th class="w-28 px-3 py-3 text-right">Denda</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        @forelse ($pinjamanLama as $o)
+                            @php($r = $o['rincian'])
+                            <tr wire:key="lama-{{ $r->id }}">
+                                <td class="px-3 py-2 font-medium text-slate-900">{{ $r->kode_referensi }}</td>
+                                <td class="px-3 py-2 text-slate-600">{{ $r->pihak?->nama ?? '—' }}</td>
+                                <td class="px-3 py-2 tabular-nums text-slate-500">{{ $r->tanggal_asal?->format('d/m/Y') ?? '—' }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums text-slate-700">{{ number_format((float) $o['sisa'], 0, ',', '.') }}</td>
+                                @foreach (['lamaPokok', 'lamaBunga', 'lamaDenda'] as $kolom)
+                                    <td class="px-2 py-1.5">
+                                        <input type="number" step="any" min="0" placeholder="0" wire:model.live.debounce.400ms="{{ $kolom }}.{{ $r->id }}"
+                                               class="w-full rounded-lg border-slate-300 px-2 py-1.5 text-right text-sm tabular-nums">
+                                    </td>
+                                @endforeach
+                            </tr>
+                            @error("lama.{$r->id}")<tr><td colspan="7" class="px-3 pb-2 text-xs text-rose-600">{{ $message }}</td></tr>@enderror
+                        @empty
+                            <tr><td colspan="7" class="px-3 py-8 text-center text-slate-500">Tidak ada pinjaman lama yang cocok dengan pencarian.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-slate-600">Total setoran: <span class="text-lg font-semibold tabular-nums text-slate-900">Rp {{ number_format((float) $this->totalLama(), 0, ',', '.') }}</span></p>
+                @can('perform-admin-mutation')
+                    <x-ui.button wire:click="terimaLama" wire:loading.attr="disabled" wire:target="terimaLama">Terima & Posting</x-ui.button>
+                @endcan
+            </div>
+        </x-ui.card>
+    @endif
+
     @if ($payAngsuranId)
         <x-ui.card title="Catat Pembayaran Angsuran" subtitle="Nilai diisi otomatis dari sisa tagihan; boleh diubah untuk pembayaran sebagian">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">

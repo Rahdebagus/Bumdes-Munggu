@@ -16,8 +16,8 @@ class MasterDataSeederTest extends TestCase
     {
         $this->seed(MasterDataSeeder::class);
 
-        $this->assertSame(2, UnitUsaha::count());
-        $this->assertSame(32, Akun::count());
+        $this->assertSame(7, UnitUsaha::count());
+        $this->assertSame(47, Akun::count());
     }
 
     public function test_all_config_system_keys_are_present_and_active(): void
@@ -37,7 +37,7 @@ class MasterDataSeederTest extends TestCase
         $this->seed(MasterDataSeeder::class);
         $this->seed(MasterDataSeeder::class); // ulang tidak menggandakan
 
-        $this->assertSame(32, Akun::count());
-        $this->assertSame(2, UnitUsaha::count());
+        $this->assertSame(47, Akun::count());
+        $this->assertSame(7, UnitUsaha::count());
     }
 }

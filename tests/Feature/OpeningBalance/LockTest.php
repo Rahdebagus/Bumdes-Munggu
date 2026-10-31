@@ -50,8 +50,8 @@ class LockTest extends TestCase
     public function test_lock_succeeds_when_balanced_without_control_accounts(): void
     {
         $this->commit([
-            ['kode_akun' => '1-1010', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '1000000'],
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '1000000'],
         ]);
 
         $this->lock();
@@ -63,8 +63,8 @@ class LockTest extends TestCase
     public function test_lock_rejected_when_unbalanced(): void
     {
         $this->commit([
-            ['kode_akun' => '1-1010', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '900000'],
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '900000'],
         ]);
 
         $this->expectException(ValidationException::class);
@@ -75,8 +75,8 @@ class LockTest extends TestCase
     {
         // Persediaan (kontrol) 500k tanpa rincian, diimbangi modal 500k.
         $this->commit([
-            ['kode_akun' => '1-1030', 'saldo_debit' => '500000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '500000'],
+            ['kode_akun' => '1.1.05.01', 'saldo_debit' => '500000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '500000'],
         ]);
 
         $recon = app(OpeningReconciliation::class)->check($this->periode);
@@ -90,8 +90,8 @@ class LockTest extends TestCase
     public function test_lock_succeeds_after_matching_rincian(): void
     {
         $this->commit([
-            ['kode_akun' => '1-1030', 'saldo_debit' => '500000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '500000'],
+            ['kode_akun' => '1.1.05.01', 'saldo_debit' => '500000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '500000'],
         ]);
 
         $inventory = SaldoAwalAkun::whereHas('akun', fn ($q) => $q->where('system_key', 'inventory'))
@@ -112,15 +112,15 @@ class LockTest extends TestCase
     public function test_reimport_rejected_after_lock(): void
     {
         $this->commit([
-            ['kode_akun' => '1-1010', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '1000000'],
+            ['kode_akun' => '1.1.01.01', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '1000000'],
         ]);
         $this->lock();
 
         $this->expectException(ValidationException::class);
         $this->commit([
-            ['kode_akun' => '1-1020', 'saldo_debit' => '1000000'],
-            ['kode_akun' => '3-3010', 'saldo_kredit' => '1000000'],
+            ['kode_akun' => '1.1.01.02', 'saldo_debit' => '1000000'],
+            ['kode_akun' => '3.1.01.00', 'saldo_kredit' => '1000000'],
         ]);
     }
 }

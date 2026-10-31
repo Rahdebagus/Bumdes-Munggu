@@ -67,8 +67,8 @@ class SaldoAwalSeederTest extends TestCase
         $this->assertNotNull($periode->opening_locked_at);
         $this->assertSame($this->actor->id, $periode->opening_locked_by);
         $this->assertDatabaseCount('saldo_awal_akun', 5);
-        $this->assertSame('30000000.00', (string) SaldoAwalAkun::sum('saldo_debit'));
-        $this->assertSame('30000000.00', (string) SaldoAwalAkun::sum('saldo_kredit'));
+        $this->assertSame('50000000.00', (string) SaldoAwalAkun::sum('saldo_debit'));
+        $this->assertSame('50000000.00', (string) SaldoAwalAkun::sum('saldo_kredit'));
         $this->assertSame(0, SaldoAwalAkun::whereNull('locked_at')->count());
         $this->assertDatabaseHas('log_aktivitas', [
             'modul' => 'OpeningBalance', 'aksi' => 'lock', 'user_id' => $this->actor->id,
@@ -158,7 +158,8 @@ class SaldoAwalSeederTest extends TestCase
     public function test_closed_period_is_preserved(): void
     {
         $periode = $this->currentPeriod(['status' => 'ditutup']);
-        $before = $periode->getAttributes();
+        // Dibaca dari DB agar urutan kolom & format tanggal sebanding dengan fresh().
+        $before = $periode->fresh()->getAttributes();
 
         $this->assertSeederRejected('sudah ditutup');
 

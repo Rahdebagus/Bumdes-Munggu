@@ -17,6 +17,7 @@ use App\Models\UnitUsaha;
 use App\Models\User;
 use Database\Seeders\MasterDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -40,8 +41,8 @@ class LaporanDesaUiTest extends TestCase
         $unit = UnitUsaha::where('kode_unit', 'UNIT-DAGANG')->firstOrFail();
 
         $rows = [
-            ['kode_akun' => '1-1010', 'unit_kode' => '', 'saldo_debit' => '1000000', 'saldo_kredit' => '0', 'keterangan' => ''],
-            ['kode_akun' => '3-3010', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => '1000000', 'keterangan' => ''],
+            ['kode_akun' => '1.1.01.01', 'unit_kode' => '', 'saldo_debit' => '1000000', 'saldo_kredit' => '0', 'keterangan' => ''],
+            ['kode_akun' => '3.1.01.00', 'unit_kode' => '', 'saldo_debit' => '0', 'saldo_kredit' => '1000000', 'keterangan' => ''],
         ];
         (new CommitImport)->handle($this->periode, (new PreviewImport)->handle($rows), $this->admin);
         app(LockOpeningBalance::class)->handle($this->periode, $this->admin);
@@ -102,6 +103,7 @@ class LaporanDesaUiTest extends TestCase
         app(LaporanDesaService::class)->submit($laporan, $this->admin);
         app(LaporanDesaService::class)->approve($laporan->fresh(), $this->pimpinan);
 
+        Storage::fake('local');
         $response = $this->actingAs($this->admin)->get(route('reports.laporan-desa.export', [
             'laporan' => $laporan->id, 'format' => 'pdf',
         ]));
