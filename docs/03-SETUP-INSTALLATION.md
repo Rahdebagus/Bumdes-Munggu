@@ -194,12 +194,12 @@ php artisan db:seed --class=ProductionSeeder --force
 | Seeder | Isi | Aman di production |
 | --- | --- | --- |
 | `ProductionSeeder` | `MasterDataSeeder` + `UserSeeder` + periode `SEED_PERIODE_AWAL` | ya (bootstrap resmi) |
-| `ProduksiBumdesSeeder` | `ProductionSeeder` + data nyata neraca 30 Juni 2026 (produk, pelanggan, nasabah, aset, saldo awal Juli 2026 terkunci) | ya — untuk database baru (lihat dokumen14) |
+| `ProduksiBumdesSeeder` | data nyata neraca 30 Juni 2026 (produk, pelanggan, nasabah, aset, saldo awal Juli 2026 terkunci); dipanggil `DatabaseSeeder` setelah master data & akun login | ya — untuk database baru (lihat dokumen14) |
 | `MasterDataSeeder` | unit usaha + chart of accounts (system_key) | ya |
 | `UserSeeder` | akun Admin & Pimpinan, identitas/password dari `.env` | ya |
 | `DemoSeeder` | transaksi/pihak/produk contoh Januari 2026 | tidak — menolak jalan |
 
-`php artisan db:seed` tanpa `--class` (juga `migrate:fresh --seed`) menjalankan `ProduksiBumdesSeeder`: master data, akun login, dan seluruh data BUMDes per 30 Juni 2026 sebagai saldo awal Juli 2026 yang terkunci. Isi `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lebih dulu; untuk master data saja pakai `--class=MasterDataSeeder`. Semua seeder produksi idempotent: akun login yang sudah ada tidak diubah (password/role/nama) dan periode tidak digandakan. Setelah bootstrap berhasil, **kosongkan** `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lalu `php artisan config:clear` — tidak ada fitur ubah password mandiri, reset dilakukan administrator.
+`php artisan db:seed` tanpa `--class` (juga `migrate:fresh --seed`) menjalankan master data + akun login (`production` → `ProductionSeeder`, lainnya → `MasterDataSeeder` + `UserSeeder`) lalu `ProduksiBumdesSeeder`: seluruh data BUMDes per 30 Juni 2026 sebagai saldo awal Juli 2026 yang terkunci. Isi `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lebih dulu; untuk master data saja pakai `--class=MasterDataSeeder`. Semua seeder produksi idempotent: akun login yang sudah ada tidak diubah (password/role/nama) dan periode tidak digandakan. Setelah bootstrap berhasil, **kosongkan** `SEED_ADMIN_PASSWORD`/`SEED_PIMPINAN_PASSWORD` lalu `php artisan config:clear` — tidak ada fitur ubah password mandiri, reset dilakukan administrator.
 
 Buat `.env.testing` dengan database `bumdes_munggu_test`. Pastikan tes tidak pernah mengarah ke database production. Jalankan `php artisan view:cache`, `php artisan test`, dan `npm run build`. Pemeriksaan format PHP dapat memakai Pint jika terpasang. Tidak diperlukan script typecheck frontend; gunakan tes komponen Livewire dan browser.
 

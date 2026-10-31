@@ -14,7 +14,6 @@ use App\Models\Akun;
 use App\Models\SaldoAwalRincian;
 use App\Models\Transaksi;
 use App\Models\User;
-use Database\Seeders\ProduksiBumdesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -41,7 +40,7 @@ class OpeningSettlementTest extends TestCase
             'seed.pimpinan_password' => 'rahasia-pimpinan-123',
             'seed.periode_awal' => null,
         ]);
-        $this->seed(ProduksiBumdesSeeder::class);
+        $this->seed();
         $this->admin = User::where('email', 'admin@bumdesmunggu.id')->firstOrFail();
     }
 

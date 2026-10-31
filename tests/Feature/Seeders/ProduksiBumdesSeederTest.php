@@ -41,7 +41,7 @@ class ProduksiBumdesSeederTest extends TestCase
 
     public function test_neraca_juni_2026_menjadi_saldo_awal_juli_terkunci(): void
     {
-        $this->seed(ProduksiBumdesSeeder::class);
+        $this->seed();
 
         $periode = PeriodeAkuntansi::where('tahun', 2026)->where('bulan', 7)->firstOrFail();
         $this->assertNotNull($periode->opening_locked_at);
@@ -62,7 +62,7 @@ class ProduksiBumdesSeederTest extends TestCase
 
     public function test_rincian_master_dan_stok_awal_terbentuk(): void
     {
-        $this->seed(ProduksiBumdesSeeder::class);
+        $this->seed();
 
         $this->assertSame(159, Produk::count());
         $this->assertSame(91, MutasiStok::where('jenis', 'opening')->whereNotNull('opening_rincian_id')->count());
@@ -82,8 +82,8 @@ class ProduksiBumdesSeederTest extends TestCase
 
     public function test_aman_dijalankan_ulang(): void
     {
-        $this->seed(ProduksiBumdesSeeder::class);
-        $this->seed(ProduksiBumdesSeeder::class);
+        $this->seed();
+        $this->seed();
 
         $this->assertSame(1, PeriodeAkuntansi::whereNotNull('opening_locked_at')->count());
         $this->assertSame(91, MutasiStok::count());

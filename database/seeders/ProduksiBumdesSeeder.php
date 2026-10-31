@@ -31,23 +31,22 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * PRODUKSI dengan data nyata BUMDes Munggu — seperti DemoSeeder, satu perintah,
- * tetapi isinya neraca 30 Juni 2026 dari laporan keuangan Excel
+ * Data nyata BUMDes Munggu: neraca 30 Juni 2026 dari laporan keuangan Excel
  * (database/seeders/data/bumdes-2026-06) sebagai saldo awal TERKUNCI periode
- * go-live Juli 2026:
+ * go-live Juli 2026. Dipanggil DatabaseSeeder setelah master data & akun login:
  *
  *   php artisan migrate --force
- *   php artisan db:seed --class=ProduksiBumdesSeeder --force
+ *   php artisan db:seed --force
  *
- * Isi: ProductionSeeder (unit, CoA, akun login Admin/Pimpinan dari .env), 159
- * produk, pelanggan per bidang desa, nasabah pinjaman pedagang pantai, aset
- * tetap, lalu saldo awal + rincian akun kontrol (stok per produk, nota piutang,
- * sisa pinjaman, aset & akumulasinya). Stok awal produk terbentuk saat saldo
- * awal dikunci. Tidak ada transaksi fiktif — transaksi Juli dst. diinput Admin.
+ * Isi: 159 produk, pelanggan per bidang desa, nasabah pinjaman pedagang
+ * pantai, aset tetap, lalu saldo awal + rincian akun kontrol (stok per produk,
+ * nota piutang, sisa pinjaman, aset & akumulasinya). Stok awal produk terbentuk
+ * saat saldo awal dikunci. Tidak ada transaksi fiktif — transaksi Juli dst.
+ * diinput Admin.
  *
- * Aman diulang: bila saldo awal Juli 2026 sudah dikunci, hanya master data yang
- * dipastikan. Menolak berjalan bila database sudah berisi saldo awal atau
- * posting lain; seluruh pemuatan dalam satu transaksi (gagal = tidak ada yang
+ * Aman diulang: bila saldo awal Juli 2026 sudah dikunci, tidak ada yang
+ * diubah. Menolak berjalan bila database sudah berisi saldo awal atau posting
+ * lain; seluruh pemuatan dalam satu transaksi (gagal = tidak ada yang
  * tersimpan).
  */
 class ProduksiBumdesSeeder extends Seeder
@@ -68,8 +67,6 @@ class ProduksiBumdesSeeder extends Seeder
 
     public function run(): void
     {
-        $this->callWith(ProductionSeeder::class, ['ringkasan' => false]);
-
         $periode = PeriodeAkuntansi::where('tahun', self::TAHUN)->where('bulan', self::BULAN)->first();
         if ($periode && $periode->opening_locked_at !== null) {
             $this->command?->info('Saldo awal Juli 2026 sudah dimuat & dikunci — tidak diubah.');
@@ -86,7 +83,7 @@ class ProduksiBumdesSeeder extends Seeder
 
         $this->actor = User::where('role', UserRole::Admin->value)->where('status', UserStatus::Aktif->value)
             ->orderBy('id')->first()
-            ?? throw new RuntimeException('Akun Admin aktif belum ada. Isi SEED_ADMIN_* di .env lalu jalankan ulang.');
+            ?? throw new RuntimeException('Master data & akun Admin belum ada. Jalankan `php artisan db:seed` (DatabaseSeeder) dengan SEED_ADMIN_* terisi di .env.');
 
         DB::transaction(function () {
             $import = app(ImportProducts::class);

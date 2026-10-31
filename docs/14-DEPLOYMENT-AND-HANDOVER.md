@@ -54,12 +54,12 @@ Segera setelah bootstrap: kosongkan kembali `SEED_ADMIN_PASSWORD` & `SEED_PIMPIN
 
 ### Go-live dengan data BUMDes (neraca 30 Juni 2026)
 
-Untuk server produksi BUMDes Munggu, pakai `ProduksiBumdesSeeder` sebagai pengganti `ProductionSeeder` — satu perintah seperti `DemoSeeder`, tetapi berisi data nyata dari laporan keuangan Juni 2026 (`database/seeders/data/bumdes-2026-06/`):
+Untuk server produksi BUMDes Munggu cukup `php artisan db:seed --force`: `DatabaseSeeder` menjalankan `ProductionSeeder` (master data + akun login) lalu `ProduksiBumdesSeeder` — satu perintah seperti `DemoSeeder`, tetapi berisi data nyata dari laporan keuangan Juni 2026 (`database/seeders/data/bumdes-2026-06/`):
 
 ```bash
 # Database baru/kosong. Isi SEED_ADMIN_*/SEED_PIMPINAN_* di .env; SEED_PERIODE_AWAL boleh kosong.
 php artisan migrate --force
-php artisan db:seed --class=ProduksiBumdesSeeder --force
+php artisan db:seed --force
 ```
 
 Hasilnya: master data + akun login, 159 produk, 8 pelanggan (bidang desa), 32 nasabah pinjaman lama, 7 aset tetap, dan saldo awal **Juli 2026** yang sudah **dikunci** — total aktiva = total pasiva Rp 1.215.728.153,78, stok awal 91 produk Rp 67.765.827, 228 nota piutang Rp 752.016.100, sisa pinjaman pedagang Rp 126.123.000. Seluruh rekonsiliasi (stok, piutang, pinjaman, aset) langsung cocok sehingga periode Juli dapat ditutup normal.
