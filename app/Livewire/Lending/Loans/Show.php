@@ -4,12 +4,15 @@ namespace App\Livewire\Lending\Loans;
 
 use App\Domain\Accounting\PostingService;
 use App\Domain\Lending\DisburseLoan;
+use App\Domain\Lending\LoanBalanceQuery;
 use App\Domain\Lending\SaveInstallmentPayment;
+use App\Domain\Shared\Decimal;
 use App\Domain\Shared\DomainException;
 use App\Enums\PinjamanStatus;
 use App\Models\Akun;
 use App\Models\Pinjaman;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -41,6 +44,29 @@ class Show extends Component
         $this->payTanggal = now()->toDateString();
     }
 
+    public function updatedPayAngsuranId(): void
+    {
+        $this->authorize('perform-admin-mutation');
+        $this->reset('payPokok', 'payBunga', 'payDenda');
+        $this->resetValidation(['payAngsuranId', 'payPokok', 'payBunga', 'payDenda', 'pay']);
+
+        if (! $this->payAngsuranId) {
+            return;
+        }
+
+        $angsuran = $this->pinjaman->angsuran()->find($this->payAngsuranId);
+        if (! $angsuran) {
+            $this->addError('payAngsuranId', 'Angsuran tidak ditemukan untuk pinjaman ini.');
+
+            return;
+        }
+
+        $paid = app(LoanBalanceQuery::class)->paid($angsuran);
+        $this->payPokok = Decimal::sub((string) $angsuran->pokok_tagihan, $paid['pokok']);
+        $this->payBunga = Decimal::sub((string) $angsuran->bunga_tagihan, $paid['bunga']);
+        $this->payDenda = Decimal::sub((string) $angsuran->denda_tagihan, $paid['denda']);
+    }
+
     public function disburse(DisburseLoan $action): void
     {
         $this->authorize('perform-admin-mutation');
@@ -62,7 +88,7 @@ class Show extends Component
     {
         $this->authorize('perform-admin-mutation');
         $this->validate([
-            'payAngsuranId' => ['required', 'integer', 'exists:angsuran,id'],
+            'payAngsuranId' => ['required', 'integer', Rule::exists('angsuran', 'id')->where('pinjaman_id', $this->pinjaman->id)],
             'akunKasId' => ['required', 'integer', 'exists:akun,id'],
             'payTanggal' => ['required', 'date'],
             'payPokok' => ['required', 'numeric', 'min:0'],

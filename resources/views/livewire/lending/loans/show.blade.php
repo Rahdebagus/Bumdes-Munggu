@@ -64,11 +64,11 @@
     {{-- Pembayaran --}}
     @can('perform-admin-mutation')
         @if ($isAktif)
-            <x-ui.card title="Bayar Angsuran" subtitle="Boleh sebagian; alokasi pokok/bunga/denda">
+            <x-ui.card title="Bayar Angsuran" subtitle="Otomatis sesuai sisa tagihan; bisa diubah untuk pembayaran sebagian.">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div class="space-y-1">
                         <label class="block text-sm font-medium text-slate-700">Angsuran</label>
-                        <select wire:model="payAngsuranId" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        <select wire:model.live="payAngsuranId" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                             <option value="">— pilih jadwal —</option>
                             @foreach ($loan->angsuran->sortBy('angsuran_ke') as $a)
                                 <option value="{{ $a->id }}">Ke-{{ $a->angsuran_ke }} ({{ $a->tanggal_jatuh_tempo->format('d/m/Y') }})</option>

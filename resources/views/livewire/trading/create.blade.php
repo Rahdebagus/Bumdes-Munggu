@@ -102,7 +102,7 @@
                                     <td class="px-2 py-2 text-center text-xs text-slate-400" x-text="i + 1"></td>
                                     <td class="px-3 py-1.5">
                                         {{-- Combobox produk --}}
-                                        <div class="relative">
+                                        <div class="relative" x-resize="$el.querySelector('[role=listbox]').style.width = Math.max(320, $width) + 'px'">
                                             <input type="text" :id="`search-${row.key}`" x-model="row.search" autocomplete="off" data-combobox
                                                    placeholder="Ketik nama / kode produk…"
                                                    role="combobox" :aria-expanded="row.open" :aria-controls="`list-${row.key}`"
@@ -112,8 +112,9 @@
                                                    class="w-full rounded-lg border px-2 py-1.5 text-sm"
                                                    :class="err(`items.${i}.produk_id`) ? 'border-red-400' : (row.produk_id ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-300')">
                                             <ul x-show="row.open && optionCount(row) > 0" x-cloak :id="`list-${row.key}`" role="listbox"
+                                                x-anchor.bottom-start.fixed.offset.4="$el.previousElementSibling"
                                                 @mousedown.prevent
-                                                class="absolute left-0 z-30 mt-1 max-h-64 w-full min-w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                                class="fixed z-40 max-h-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                                                 <template x-for="(p, idx) in options(row)" :key="p.id">
                                                     <li :id="`opt-${row.key}-${idx}`" role="option" :aria-selected="row.active === idx"
                                                         @click="select(row, p)" @mouseenter="row.active = idx"
