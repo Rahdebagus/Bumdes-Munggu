@@ -21,8 +21,6 @@ use Illuminate\Support\Facades\DB;
  */
 class LaporanDesaService
 {
-    private const FINAL = [LaporanDesaStatus::Disetujui, LaporanDesaStatus::Dikirim, LaporanDesaStatus::Diterima];
-
     public function __construct(private ReportService $reports) {}
 
     /** Buat/segarkan draft snapshot untuk periode. */
@@ -66,7 +64,7 @@ class LaporanDesaService
 
             // Draft/revisi diajukan; diajukan boleh diajukan ulang (regenerate)
             // setelah data berubah. Yang sudah final (disetujui+) tidak bisa.
-            if (in_array($l->status, self::FINAL, true)) {
+            if ($l->status->isFinal()) {
                 throw DomainException::invalidState('Laporan sudah disetujui; gunakan revisi untuk koreksi.');
             }
 
@@ -117,13 +115,43 @@ class LaporanDesaService
         });
     }
 
+    /**
+     * Pimpinan mengembalikan laporan diajukan ke Admin (status revisi) dengan
+     * catatan wajib. Versi tetap sama: Admin memperbaiki data, segarkan draft,
+     * lalu ajukan ulang. Bukan penolakan final — setiap periode tetap butuh
+     * satu laporan disetujui.
+     */
+    public function requestRevision(LaporanDesa $laporan, User $actor, string $catatan): LaporanDesa
+    {
+        $catatan = trim($catatan);
+        if ($catatan === '') {
+            throw DomainException::invalidState('Catatan revisi wajib diisi agar Admin tahu apa yang harus diperbaiki.');
+        }
+
+        return DB::transaction(function () use ($laporan, $actor, $catatan) {
+            $l = LaporanDesa::whereKey($laporan->id)->lockForUpdate()->firstOrFail();
+
+            if ($l->status !== LaporanDesaStatus::Diajukan) {
+                throw DomainException::invalidState('Hanya laporan berstatus diajukan yang dapat dikembalikan untuk revisi.');
+            }
+
+            $l->update([
+                'status' => LaporanDesaStatus::Revisi->value,
+                'catatan_pimpinan' => $catatan,
+            ]);
+            $this->log($actor, $l, 'request_revision', $catatan);
+
+            return $l->fresh();
+        });
+    }
+
     /** Koreksi pasca approval: versi baru (draft) tertaut ke versi sebelumnya. */
     public function revise(LaporanDesa $laporan, User $actor): LaporanDesa
     {
         return DB::transaction(function () use ($laporan, $actor) {
             $l = LaporanDesa::whereKey($laporan->id)->lockForUpdate()->firstOrFail();
 
-            if (! in_array($l->status, self::FINAL, true)) {
+            if (! $l->status->isFinal()) {
                 throw DomainException::invalidState('Revisi hanya untuk laporan yang sudah disetujui/dikirim/diterima.');
             }
 
@@ -156,7 +184,7 @@ class LaporanDesaService
         return DB::transaction(function () use ($laporan, $actor, $data) {
             $l = LaporanDesa::whereKey($laporan->id)->lockForUpdate()->firstOrFail();
 
-            if (! in_array($l->status, self::FINAL, true)) {
+            if (! $l->status->isFinal()) {
                 throw DomainException::invalidState('Pengiriman hanya untuk laporan yang sudah disetujui.');
             }
 
@@ -225,7 +253,7 @@ class LaporanDesaService
         return 'LD-'.$periode->tahun.str_pad((string) $periode->bulan, 2, '0', STR_PAD_LEFT)."-v{$version}";
     }
 
-    private function log(User $actor, LaporanDesa $laporan, string $aksi): void
+    private function log(User $actor, LaporanDesa $laporan, string $aksi, ?string $catatan = null): void
     {
         LogAktivitas::create([
             'user_id' => $actor->id,
@@ -233,7 +261,7 @@ class LaporanDesaService
             'aksi' => $aksi,
             'referensi_tipe' => 'laporan_desa',
             'referensi_id' => $laporan->id,
-            'alasan' => "Laporan {$laporan->nomor_laporan} ({$aksi})",
+            'alasan' => "Laporan {$laporan->nomor_laporan} ({$aksi})".($catatan ? ": {$catatan}" : ''),
         ]);
     }
 }

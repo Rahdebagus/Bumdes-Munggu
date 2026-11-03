@@ -8,6 +8,7 @@ use App\Domain\OpeningBalance\CommitImport;
 use App\Domain\OpeningBalance\LockOpeningBalance;
 use App\Domain\OpeningBalance\PreviewImport;
 use App\Domain\Reporting\LaporanDesaService;
+use App\Domain\Shared\DomainException;
 use App\Enums\LaporanDesaStatus;
 use App\Livewire\Reports\LaporanDesa;
 use App\Models\Akun;
@@ -95,6 +96,70 @@ class LaporanDesaUiTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame(LaporanDesaStatus::Disetujui, $laporan->fresh()->status);
+    }
+
+    public function test_pimpinan_minta_revisi_lalu_admin_ajukan_ulang(): void
+    {
+        $svc = app(LaporanDesaService::class);
+        $laporan = $svc->generate($this->periode, $this->admin);
+        $svc->submit($laporan, $this->admin);
+
+        Livewire::actingAs($this->pimpinan)->test(LaporanDesa::class, ['periodeId' => $this->periode->id])
+            ->assertSee('Minta Revisi')
+            ->call('startRevision', $laporan->id)
+            ->set('revisionNote', 'Penjualan ATK tanggal 15 belum masuk.')
+            ->call('requestRevision')
+            ->assertHasNoErrors();
+
+        $fresh = $laporan->fresh();
+        $this->assertSame(LaporanDesaStatus::Revisi, $fresh->status);
+        $this->assertSame('Penjualan ATK tanggal 15 belum masuk.', $fresh->catatan_pimpinan);
+        $this->assertDatabaseHas('log_aktivitas', ['modul' => 'LaporanDesa', 'aksi' => 'request_revision', 'referensi_id' => $laporan->id]);
+
+        // Admin melihat catatan, lalu mengajukan ulang versi yang sama.
+        Livewire::actingAs($this->admin)->test(LaporanDesa::class, ['periodeId' => $this->periode->id])
+            ->assertSee('perlu revisi')
+            ->assertSee('Penjualan ATK tanggal 15 belum masuk.')
+            ->call('submit', $laporan->id)
+            ->assertHasNoErrors();
+
+        $this->assertSame(LaporanDesaStatus::Diajukan, $laporan->fresh()->status);
+        $this->assertSame(1, LaporanDesaModel::count());
+    }
+
+    public function test_minta_revisi_wajib_catatan(): void
+    {
+        $laporan = app(LaporanDesaService::class)->generate($this->periode, $this->admin);
+        app(LaporanDesaService::class)->submit($laporan, $this->admin);
+
+        Livewire::actingAs($this->pimpinan)->test(LaporanDesa::class, ['periodeId' => $this->periode->id])
+            ->call('startRevision', $laporan->id)
+            ->set('revisionNote', '  ')
+            ->call('requestRevision')
+            ->assertHasErrors('revisionNote');
+
+        $this->assertSame(LaporanDesaStatus::Diajukan, $laporan->fresh()->status);
+    }
+
+    public function test_admin_tidak_boleh_minta_revisi(): void
+    {
+        $laporan = app(LaporanDesaService::class)->generate($this->periode, $this->admin);
+        app(LaporanDesaService::class)->submit($laporan, $this->admin);
+
+        Livewire::actingAs($this->admin)->test(LaporanDesa::class, ['periodeId' => $this->periode->id])
+            ->call('startRevision', $laporan->id)
+            ->assertForbidden();
+    }
+
+    public function test_laporan_disetujui_tidak_bisa_diminta_revisi(): void
+    {
+        $svc = app(LaporanDesaService::class);
+        $laporan = $svc->generate($this->periode, $this->admin);
+        $svc->submit($laporan, $this->admin);
+        $svc->approve($laporan->fresh(), $this->pimpinan);
+
+        $this->expectException(DomainException::class);
+        $svc->requestRevision($laporan->fresh(), $this->pimpinan, 'Terlambat.');
     }
 
     public function test_ekspor_resmi_mengunduh_pdf(): void

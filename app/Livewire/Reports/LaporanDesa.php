@@ -3,6 +3,7 @@
 namespace App\Livewire\Reports;
 
 use App\Domain\Reporting\LaporanDesaService;
+use App\Domain\Reporting\ReportService;
 use App\Domain\Shared\DomainException;
 use App\Models\LaporanDesa as LaporanDesaModel;
 use App\Models\PeriodeAkuntansi;
@@ -29,6 +30,10 @@ class LaporanDesa extends Component
 
     public string $deliverBukti = '';
 
+    public ?int $revisionId = null;
+
+    public string $revisionNote = '';
+
     public function mount(): void
     {
         $this->periodeId ??= PeriodeAkuntansi::whereNotNull('opening_locked_at')
@@ -49,6 +54,17 @@ class LaporanDesa extends Component
 
         return LaporanDesaModel::where('periode_id', $this->periodeId)
             ->with('approvedBy')->orderByDesc('version')->get();
+    }
+
+    /** Revisi data live periode terpilih — pembanding data_revision snapshot diajukan. */
+    public function liveRevision(): ?int
+    {
+        $periode = $this->periodeId ? PeriodeAkuntansi::find($this->periodeId) : null;
+
+        return $periode ? app(ReportService::class)->dataRevision(
+            $periode->tanggal_mulai->toDateString(),
+            $periode->tanggal_selesai->toDateString(),
+        ) : null;
     }
 
     private function run(callable $fn, string $ok): void
@@ -78,6 +94,29 @@ class LaporanDesa extends Component
     {
         $this->authorize('approve-laporan');
         $this->run(fn () => app(LaporanDesaService::class)->approve(LaporanDesaModel::findOrFail($id), auth()->user()), 'Laporan disetujui.');
+    }
+
+    /** Buka panel catatan revisi untuk laporan diajukan (Pimpinan). */
+    public function startRevision(int $id): void
+    {
+        $this->authorize('approve-laporan');
+        $this->revisionId = $id;
+        $this->revisionNote = '';
+    }
+
+    /** Kembalikan laporan ke Admin dengan catatan wajib. */
+    public function requestRevision(): void
+    {
+        $this->authorize('approve-laporan');
+        $this->validate(['revisionNote' => ['required', 'string', 'min:5', 'max:1000']], [], ['revisionNote' => 'catatan revisi']);
+
+        $this->run(function () {
+            app(LaporanDesaService::class)->requestRevision(
+                LaporanDesaModel::findOrFail($this->revisionId), auth()->user(), $this->revisionNote,
+            );
+            $this->revisionId = null;
+            $this->revisionNote = '';
+        }, 'Laporan dikembalikan ke Admin untuk revisi.');
     }
 
     public function revise(int $id): void
