@@ -143,6 +143,25 @@ class ReportService
         return $result;
     }
 
+    /**
+     * system_key akun penjualan/HPP seluruh kategori produk (config
+     * accounting.product_categories) + default 'sales'/'cogs'.
+     *
+     * @return array<int, string>
+     */
+    private function categoryKeys(string $role): array
+    {
+        $keys = array_column(config('accounting.product_categories', []), $role);
+
+        return array_values(array_unique([$role, ...$keys]));
+    }
+
+    /** Σ saldo natural beberapa system_key. */
+    private function sumKeys(array $balances, array $keys): string
+    {
+        return array_reduce($keys, fn ($sum, $k) => Decimal::add($sum, $balances[$k] ?? '0'), '0');
+    }
+
     public function labaBersih(string $from, string $to, ?int $unitId = null): string
     {
         // P&L basis-akun (jenis), tanpa opening: Σ pendapatan − (Σ hpp + Σ beban).
@@ -160,8 +179,8 @@ class ReportService
     public function labaRugi(string $from, string $to, ?int $unitId = null): array
     {
         $b = $this->systemKeyBalances($to, $unitId, includeOpening: false, from: $from);
-        $penjualan = $b['sales'] ?? '0';
-        $hpp = $b['cogs'] ?? '0';
+        $penjualan = $this->sumKeys($b, $this->categoryKeys('sales'));
+        $hpp = $this->sumKeys($b, $this->categoryKeys('cogs'));
         $labaKotor = Decimal::sub($penjualan, $hpp);
         $pendapatanKredit = Decimal::add($b['interest_income'] ?? '0', $b['penalty_income'] ?? '0');
         $pendapatanLain = $b['inventory_gain'] ?? '0';
@@ -208,6 +227,7 @@ class ReportService
             'aset_tetap_neto' => $asetTetapNeto,
             'total_aset' => $aset,
             'utang' => $kewajiban,
+            'utang_usaha' => $b['trade_payable'] ?? '0.00',
             'modal' => $modal,
             'laba_kumulatif' => $laba,
             'total_ekuitas' => $ekuitas,
@@ -314,7 +334,7 @@ class ReportService
 
         // Penjualan bersih + pendapatan kredit (bunga+denda) + pendapatan lain. Bukan modal/pokok/pajak.
         return Decimal::add(
-            Decimal::add($b['sales'] ?? '0', $b['interest_income'] ?? '0'),
+            Decimal::add($this->sumKeys($b, $this->categoryKeys('sales')), $b['interest_income'] ?? '0'),
             Decimal::add($b['penalty_income'] ?? '0', $b['inventory_gain'] ?? '0')
         );
     }
@@ -327,7 +347,7 @@ class ReportService
     public function omzetDesaBreakdown(string $from, string $to, ?int $unitId = null): array
     {
         $b = $this->systemKeyBalances($to, $unitId, includeOpening: false, from: $from);
-        $dagang = Decimal::of($b['sales'] ?? '0');
+        $dagang = $this->sumKeys($b, $this->categoryKeys('sales'));
         $kredit = Decimal::add($b['interest_income'] ?? '0', $b['penalty_income'] ?? '0');
         $lain = Decimal::of($b['inventory_gain'] ?? '0');
 
@@ -614,9 +634,10 @@ class ReportService
         $add('piutang_usaha', 'Piutang dagang: subledger = ledger',
             $this->receivableSubledger($to, $unitId), $neraca['piutang_usaha'], 'FAIL');
 
-        // 6. Utang dagang.
+        // 6. Utang dagang: hanya akun utang usaha (bukan total kewajiban — utang
+        // pajak/gaji tidak punya subledger nota).
         $add('utang_usaha', 'Utang dagang: subledger = ledger',
-            $this->payableSubledger($to, $unitId), $neraca['utang'], 'FAIL');
+            $this->payableSubledger($to, $unitId), $neraca['utang_usaha'], 'FAIL');
 
         // 7. Pinjaman: sisa pokok subledger = akun piutang pinjaman.
         $add('pinjaman', 'Pinjaman: sisa pokok subledger = ledger',
