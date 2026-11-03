@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Cash;
 
+use App\Domain\Accounting\PostDocument;
 use App\Domain\Accounting\ReverseTransaction;
+use App\Domain\Cash\SaveCashDraft;
 use App\Domain\OpeningBalance\OpeningItems;
 use App\Domain\Reporting\LedgerReports;
 use App\Domain\Reporting\ReportService;
+use App\Domain\Shared\DomainException;
 use App\Enums\SaldoRincianJenis;
 use App\Enums\TransaksiStatus;
 use App\Livewire\Cash\Settlements;
@@ -14,6 +17,9 @@ use App\Models\Akun;
 use App\Models\SaldoAwalRincian;
 use App\Models\Transaksi;
 use App\Models\User;
+use Database\Seeders\MasterDataSeeder;
+use Database\Seeders\ProduksiBumdesSeeder;
+use Database\Seeders\UserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -40,7 +46,8 @@ class OpeningSettlementTest extends TestCase
             'seed.pimpinan_password' => 'rahasia-pimpinan-123',
             'seed.periode_awal' => null,
         ]);
-        $this->seed();
+        // Data Juni 2026 (nota piutang & pinjaman lama) dari seeder alternatif.
+        $this->seed([MasterDataSeeder::class, UserSeeder::class, ProduksiBumdesSeeder::class]);
         $this->admin = User::where('email', 'admin@bumdesmunggu.id')->firstOrFail();
     }
 
@@ -142,13 +149,13 @@ class OpeningSettlementTest extends TestCase
     {
         $nota = $this->rincian(SaldoRincianJenis::PiutangUsaha, '406');
 
-        $draft = app(\App\Domain\Cash\SaveCashDraft::class)->handle([
+        $draft = app(SaveCashDraft::class)->handle([
             'tanggal' => '2026-07-10', 'kategori_kode' => 'setoran_pinjaman_lama',
             'akun_kas_id' => Akun::where('system_key', 'cash')->value('id'),
             'allocations' => [['opening_rincian_id' => $nota->id, 'nominal' => '100000']],
         ], $this->admin);
 
-        $this->expectException(\App\Domain\Shared\DomainException::class);
-        app(\App\Domain\Accounting\PostDocument::class)->handle($draft, $this->admin);
+        $this->expectException(DomainException::class);
+        app(PostDocument::class)->handle($draft, $this->admin);
     }
 }

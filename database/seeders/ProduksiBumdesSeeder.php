@@ -33,10 +33,12 @@ use RuntimeException;
 /**
  * Data nyata BUMDes Munggu: neraca 30 Juni 2026 dari laporan keuangan Excel
  * (database/seeders/data/bumdes-2026-06) sebagai saldo awal TERKUNCI periode
- * go-live Juli 2026. Dipanggil DatabaseSeeder setelah master data & akun login:
+ * go-live Juli 2026. ALTERNATIF dari ModalAwalBumdesSeeder (yang dipakai
+ * DatabaseSeeder) — dipanggil eksplisit setelah master data & akun login:
  *
  *   php artisan migrate --force
- *   php artisan db:seed --force
+ *   php artisan db:seed --class=ProductionSeeder --force
+ *   php artisan db:seed --class=ProduksiBumdesSeeder --force
  *
  * Isi: 159 produk, pelanggan per bidang desa, nasabah pinjaman pedagang
  * pantai, aset tetap, lalu saldo awal + rincian akun kontrol (stok per produk,

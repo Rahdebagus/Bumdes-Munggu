@@ -4,6 +4,7 @@ namespace Tests\Feature\Seeders;
 
 use App\Domain\Reporting\ReportService;
 use App\Enums\SaldoRincianJenis;
+use App\Models\Akun;
 use App\Models\AsetTetap;
 use App\Models\MutasiStok;
 use App\Models\PeriodeAkuntansi;
@@ -11,8 +12,10 @@ use App\Models\Pihak;
 use App\Models\Produk;
 use App\Models\SaldoAwalAkun;
 use App\Models\SaldoAwalRincian;
+use App\Models\User;
 use Database\Seeders\MasterDataSeeder;
 use Database\Seeders\ProduksiBumdesSeeder;
+use Database\Seeders\UserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\TestCase;
@@ -39,9 +42,15 @@ class ProduksiBumdesSeederTest extends TestCase
         ]);
     }
 
+    /** Alternatif DatabaseSeeder: master data + akun login lalu data Excel Juni 2026. */
+    private function seedProduksi(): void
+    {
+        $this->seed([MasterDataSeeder::class, UserSeeder::class, ProduksiBumdesSeeder::class]);
+    }
+
     public function test_neraca_juni_2026_menjadi_saldo_awal_juli_terkunci(): void
     {
-        $this->seed();
+        $this->seedProduksi();
 
         $periode = PeriodeAkuntansi::where('tahun', 2026)->where('bulan', 7)->firstOrFail();
         $this->assertNotNull($periode->opening_locked_at);
@@ -62,7 +71,7 @@ class ProduksiBumdesSeederTest extends TestCase
 
     public function test_rincian_master_dan_stok_awal_terbentuk(): void
     {
-        $this->seed();
+        $this->seedProduksi();
 
         $this->assertSame(159, Produk::count());
         $this->assertSame(91, MutasiStok::where('jenis', 'opening')->whereNotNull('opening_rincian_id')->count());
@@ -82,8 +91,8 @@ class ProduksiBumdesSeederTest extends TestCase
 
     public function test_aman_dijalankan_ulang(): void
     {
-        $this->seed();
-        $this->seed();
+        $this->seedProduksi();
+        $this->seedProduksi();
 
         $this->assertSame(1, PeriodeAkuntansi::whereNotNull('opening_locked_at')->count());
         $this->assertSame(91, MutasiStok::count());
@@ -93,9 +102,9 @@ class ProduksiBumdesSeederTest extends TestCase
     public function test_menolak_database_yang_sudah_berisi_saldo_awal(): void
     {
         $this->seed(MasterDataSeeder::class);
-        $this->seed(\Database\Seeders\UserSeeder::class);
+        $this->seed(UserSeeder::class);
         $lain = PeriodeAkuntansi::create(['tahun' => 2026, 'bulan' => 1, 'tanggal_mulai' => '2026-01-01', 'tanggal_selesai' => '2026-01-31', 'status' => 'terbuka', 'revision' => 0]);
-        SaldoAwalAkun::create(['periode_id' => $lain->id, 'akun_id' => \App\Models\Akun::where('kode_akun', '1.1.01.01')->value('id'), 'saldo_debit' => 1, 'saldo_kredit' => 0, 'created_by' => \App\Models\User::value('id')]);
+        SaldoAwalAkun::create(['periode_id' => $lain->id, 'akun_id' => Akun::where('kode_akun', '1.1.01.01')->value('id'), 'saldo_debit' => 1, 'saldo_kredit' => 0, 'created_by' => User::value('id')]);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('database baru');

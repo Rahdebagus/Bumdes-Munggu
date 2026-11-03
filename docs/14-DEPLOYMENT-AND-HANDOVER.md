@@ -52,22 +52,30 @@ php artisan db:seed --class=ProductionSeeder --force
 
 Segera setelah bootstrap: kosongkan kembali `SEED_ADMIN_PASSWORD` & `SEED_PIMPINAN_PASSWORD` di `.env`, jalankan `php artisan config:clear`, serahkan password awal lewat kanal terpisah, dan minta pengelola meninjau nama unit/penanggung jawab serta chart of accounts sebelum saldo awal dikunci.
 
-### Go-live dengan data BUMDes (neraca 30 Juni 2026)
+### Go-live dengan modal awal BUMDes (November 2026)
 
-Untuk server produksi BUMDes Munggu cukup `php artisan db:seed --force`: `DatabaseSeeder` menjalankan `ProductionSeeder` (master data + akun login) lalu `ProduksiBumdesSeeder` — satu perintah seperti `DemoSeeder`, tetapi berisi data nyata dari laporan keuangan Juni 2026 (`database/seeders/data/bumdes-2026-06/`):
+Untuk server produksi BUMDes Munggu cukup `php artisan db:seed --force`: `DatabaseSeeder` menjalankan `ProductionSeeder` (master data + akun login) lalu `ModalAwalBumdesSeeder` — satu perintah, isinya sama dengan database lokal (`database/seeders/data/modal-awal-2026-11/`):
 
 ```bash
-# Database baru/kosong. Isi SEED_ADMIN_*/SEED_PIMPINAN_* di .env; SEED_PERIODE_AWAL boleh kosong.
+# Database baru/kosong. Isi SEED_ADMIN_*/SEED_PIMPINAN_* di .env; SEED_PERIODE_AWAL kosong atau 2026-11.
 php artisan migrate --force
 php artisan db:seed --force
 ```
 
-Hasilnya: master data + akun login, 159 produk, 8 pelanggan (bidang desa), 32 nasabah pinjaman lama, 7 aset tetap, dan saldo awal **Juli 2026** yang sudah **dikunci** — total aktiva = total pasiva Rp 1.215.728.153,78, stok awal 91 produk Rp 67.765.827, 228 nota piutang Rp 752.016.100, sisa pinjaman pedagang Rp 126.123.000. Seluruh rekonsiliasi (stok, piutang, pinjaman, aset) langsung cocok sehingga periode Juli dapat ditutup normal.
+Hasilnya: master data + akun login, 159 produk, dan saldo awal **November 2026** yang sudah **dikunci**:
 
-- Nota piutang lama dilunasi dari **Pelunasan Piutang Usaha** (berlabel *saldo awal*).
-- Setoran pinjaman lama (pokok + bunga + denda, borongan seperti slip kas kredit) dicatat di **Pembayaran Angsuran → Pinjaman Lama (Saldo Awal)**. Pinjaman baru tetap lewat **Data Pinjaman**.
-- Seeder menolak database yang sudah berisi saldo awal/transaksi (seluruh pemuatan satu transaksi DB) dan aman dijalankan ulang setelah berhasil.
-- Transaksi Juli 2026 s.d. tanggal go-live diinput Admin secara berurutan setelah seeder selesai.
+| Akun | Nilai |
+|---|---|
+| Persediaan (stok awal 90 produk: Dagang 61.085.870 · ATK 30.526.130 · Konsumsi 8.388.000) | Rp 100.000.000 |
+| Kas Tunai (unit Kredit) | Rp 100.000.000 |
+| **Total aktiva = Modal Desa Munggu** | **Rp 200.000.000** |
+
+- Nilai modal kas, unit kas, periode cutover, dan total modal barang diatur lewat konstanta di `DatabaseSeeder` (`PERIODE_AWAL`, `MODAL_KAS`, `UNIT_KAS`, `MODAL_BARANG`); rincian stok di `persediaan.csv`. Total CSV wajib sama dengan `MODAL_BARANG`.
+- `SEED_PERIODE_AWAL` yang berbeda dari `PERIODE_AWAL` ditolak sebelum apa pun ditulis.
+- Seeder menolak database yang sudah berisi saldo awal/transaksi/stok (seluruh pemuatan satu transaksi DB) dan aman dijalankan ulang setelah berhasil.
+- Transaksi November 2026 s.d. tanggal go-live diinput Admin secara berurutan setelah seeder selesai.
+
+Alternatif — data nyata neraca Excel 30 Juni 2026 (saldo awal Juli 2026, total Rp 1.215.728.153,78, termasuk piutang, pinjaman lama, dan aset): pada database baru jalankan `php artisan db:seed --class=ProductionSeeder --force` lalu `php artisan db:seed --class=ProduksiBumdesSeeder --force`. Jangan digabung dengan modal awal November.
 
 ## 3. Worker dan scheduler
 
