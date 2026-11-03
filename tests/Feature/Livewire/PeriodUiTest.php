@@ -43,6 +43,8 @@ class PeriodUiTest extends TestCase
 
     public function test_admin_dapat_menutup_periode_bersih(): void
     {
+        $this->approveLaporanDesa($this->periode);
+
         Livewire::actingAs($this->admin)->test(Index::class)
             ->assertOk()
             ->assertSee('Periode Akuntansi')
@@ -50,6 +52,16 @@ class PeriodUiTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame(PeriodeStatus::Ditutup, $this->periode->fresh()->status);
+    }
+
+    public function test_tutup_tanpa_laporan_omzet_disetujui_ditolak(): void
+    {
+        Livewire::actingAs($this->admin)->test(Index::class)
+            ->assertSee('Laporan omzet desa periode ini belum dibuat')
+            ->call('close', $this->periode->id)
+            ->assertHasErrors('periode');
+
+        $this->assertSame(PeriodeStatus::Terbuka, $this->periode->fresh()->status);
     }
 
     public function test_pimpinan_tidak_boleh_menutup_periode(): void
@@ -95,6 +107,7 @@ class PeriodUiTest extends TestCase
 
     public function test_admin_dapat_reopen_dengan_alasan(): void
     {
+        $this->approveLaporanDesa($this->periode);
         app(ClosePeriod::class)->handle($this->periode, $this->admin);
 
         Livewire::actingAs($this->admin)->test(Index::class)

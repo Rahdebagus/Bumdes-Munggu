@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div>
         <h1 class="text-xl font-semibold text-slate-900">Periode Akuntansi</h1>
-        <p class="text-sm text-slate-500">Tutup/buka periode. Penutupan menolak bila rekonsiliasi gagal, penyusutan/opname belum selesai.</p>
+        <p class="text-sm text-slate-500">Tutup/buka periode. Penutupan menolak bila rekonsiliasi gagal, penyusutan/opname belum selesai, atau laporan omzet desa belum disetujui Pimpinan.</p>
     </div>
 
     @if (session('status'))

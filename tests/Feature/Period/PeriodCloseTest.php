@@ -11,6 +11,7 @@ use App\Domain\OpeningBalance\LockOpeningBalance;
 use App\Domain\OpeningBalance\PreviewImport;
 use App\Domain\Period\ClosePeriod;
 use App\Domain\Period\ReopenPeriod;
+use App\Domain\Reporting\LaporanDesaService;
 use App\Domain\Reporting\ReportService;
 use App\Domain\Shared\DomainException;
 use App\Enums\PeriodeStatus;
@@ -81,7 +82,8 @@ class PeriodCloseTest extends TestCase
         $svc = app(ReportService::class);
         $beban = $this->postBeban('2026-06-30', '100000', 'beban-juni');
 
-        // Tutup Juni (bersih: tanpa aset/opname).
+        // Tutup Juni (bersih: tanpa aset/opname; laporan omzet disetujui).
+        $this->approveLaporanDesa($this->juni);
         app(ClosePeriod::class)->handle($this->juni, $this->actor);
         $this->assertSame(PeriodeStatus::Ditutup, $this->juni->fresh()->status);
 
@@ -104,6 +106,7 @@ class PeriodCloseTest extends TestCase
 
     public function test_posting_ke_periode_tertutup_ditolak_lalu_reopen_mengizinkan(): void
     {
+        $this->approveLaporanDesa($this->juni);
         app(ClosePeriod::class)->handle($this->juni, $this->actor);
 
         try {
@@ -126,10 +129,55 @@ class PeriodCloseTest extends TestCase
 
     public function test_reopen_tanpa_alasan_ditolak(): void
     {
+        $this->approveLaporanDesa($this->juni);
         app(ClosePeriod::class)->handle($this->juni, $this->actor);
 
         $this->expectException(DomainException::class);
         app(ReopenPeriod::class)->handle($this->juni, $this->actor, '   ');
+    }
+
+    public function test_tutup_wajib_laporan_omzet_disetujui(): void
+    {
+        $close = app(ClosePeriod::class);
+        $this->postBeban('2026-06-10', '50000', 'beban-lap');
+        $this->assertStringContainsString('belum dibuat', implode(' ', $close->blockers($this->juni)));
+
+        $svc = app(LaporanDesaService::class);
+        $laporan = $svc->generate($this->juni, $this->actor);
+        $svc->submit($laporan, $this->actor);
+        $this->assertStringContainsString('berstatus diajukan', implode(' ', $close->blockers($this->juni)));
+
+        try {
+            $close->handle($this->juni, $this->actor);
+            $this->fail('Seharusnya CLOSE_BLOCKED.');
+        } catch (DomainException $e) {
+            $this->assertSame('CLOSE_BLOCKED', $e->domainCode);
+        }
+
+        $svc->approve($laporan->fresh(), User::factory()->pimpinan()->create());
+        $this->assertSame([], $close->blockers($this->juni));
+        $close->handle($this->juni, $this->actor);
+        $this->assertSame(PeriodeStatus::Ditutup, $this->juni->fresh()->status);
+    }
+
+    public function test_tutup_diblokir_bila_angka_berubah_setelah_laporan_disetujui(): void
+    {
+        $close = app(ClosePeriod::class);
+        $v1 = $this->approveLaporanDesa($this->juni);
+
+        // Posting susulan setelah disetujui → angka beda dari snapshot.
+        $this->postBeban('2026-06-20', '75000', 'beban-susulan');
+        $this->assertStringContainsString('Angka periode berubah', implode(' ', $close->blockers($this->juni)));
+
+        // Versi revisi diajukan & disetujui ulang → boleh ditutup.
+        $svc = app(LaporanDesaService::class);
+        $v2 = $svc->revise($v1, $this->actor);
+        $svc->submit($v2, $this->actor);
+        $svc->approve($v2->fresh(), User::factory()->pimpinan()->create());
+
+        $this->assertSame([], $close->blockers($this->juni));
+        $close->handle($this->juni, $this->actor);
+        $this->assertSame(PeriodeStatus::Ditutup, $this->juni->fresh()->status);
     }
 
     public function test_tutup_diblokir_bila_penyusutan_belum_diposting(): void

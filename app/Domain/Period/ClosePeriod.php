@@ -7,6 +7,7 @@ use App\Domain\Shared\Decimal;
 use App\Domain\Shared\DomainException;
 use App\Enums\PeriodeStatus;
 use App\Models\AsetTetap;
+use App\Models\LaporanDesa;
 use App\Models\LogAktivitas;
 use App\Models\PeriodeAkuntansi;
 use App\Models\StokOpname;
@@ -17,7 +18,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Menutup periode akuntansi (dokumen10 §Rekonsiliasi — FAIL pada penutupan).
  * Menolak bila ada rekonsiliasi FAIL, penyusutan aset eligible belum diposting,
- * atau stok opname disetujui belum diposting. Draft tertinggal = peringatan
+ * stok opname disetujui belum diposting, atau laporan omzet desa belum disetujui
+ * / angkanya sudah berubah sejak disetujui. Draft tertinggal = peringatan
  * (tidak memblokir, dicatat). Sukses → status ditutup + closed_at/by + revision++.
  */
 class ClosePeriod
@@ -51,7 +53,39 @@ class ClosePeriod
             $blockers[] = "Ada {$opnamePending} stok opname disetujui belum diposting.";
         }
 
+        if ($laporan = $this->laporanBlocker($periode)) {
+            $blockers[] = $laporan;
+        }
+
         return $blockers;
+    }
+
+    /**
+     * Urutan wajib: laporan omzet disetujui → periode ditutup. Versi terakhir
+     * harus final dan angka periode belum berubah sejak snapshot, agar buku
+     * yang dikunci = angka yang disetujui Pimpinan.
+     */
+    private function laporanBlocker(PeriodeAkuntansi $periode): ?string
+    {
+        $laporan = LaporanDesa::where('periode_id', $periode->id)->orderByDesc('version')->first();
+
+        if (! $laporan) {
+            return 'Laporan omzet desa periode ini belum dibuat dan disetujui Pimpinan.';
+        }
+
+        if (! $laporan->status->isFinal()) {
+            return "Laporan omzet {$laporan->nomor_laporan} masih berstatus {$laporan->status->value}; harus disetujui Pimpinan sebelum periode ditutup.";
+        }
+
+        $live = $this->reports->dataRevision(
+            $periode->tanggal_mulai->toDateString(),
+            $periode->tanggal_selesai->toDateString(),
+        );
+        if ($live !== (int) $laporan->data_revision) {
+            return "Angka periode berubah sejak laporan omzet {$laporan->nomor_laporan} disetujui; buat versi revisi lalu ajukan dan setujui ulang.";
+        }
+
+        return null;
     }
 
     /** @return array<int, string> peringatan (tidak memblokir) */
