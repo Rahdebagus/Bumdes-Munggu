@@ -38,7 +38,7 @@
                         <td class="px-4 py-2 capitalize">{{ $m->jenis->value }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ (float) $m->kuantitas_masuk ? $fmtQty($m->kuantitas_masuk) : '' }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ (float) $m->kuantitas_keluar ? $fmtQty($m->kuantitas_keluar) : '' }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ $fmtMoney($m->nilai_masuk ?: $m->nilai_keluar) }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ $fmtMoney((float) $m->nilai_masuk > 0 ? $m->nilai_masuk : $m->nilai_keluar) }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ $fmtQty($m->saldo_kuantitas) }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ $fmtMoney($m->saldo_nilai) }}</td>
                     </tr>

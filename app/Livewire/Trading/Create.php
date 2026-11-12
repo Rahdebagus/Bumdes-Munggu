@@ -271,6 +271,6 @@ class Create extends Component
                 'draft' => $this->draftPayload(),
                 'canMutate' => auth()->user()?->can('perform-admin-mutation') ?? false,
             ],
-        ]);
+        ])->title(($this->draftId ? 'Edit Draft ' : '').ucfirst($this->jenis));
     }
 }

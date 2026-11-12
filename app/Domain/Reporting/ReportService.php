@@ -175,6 +175,16 @@ class ReportService
         return Decimal::sub($pendapatan, $beban);
     }
 
+    /**
+     * Total beban periode basis-akun (jenis 'beban', tanpa HPP): biaya operasional
+     * rinci, penyusutan, non-operasional, dan pajak — sama dengan yang mengurangi
+     * laba bersih. Akun rinci tanpa system_key (biaya pegawai, transport, …) ikut.
+     */
+    public function totalBeban(string $from, string $to, ?int $unitId = null): string
+    {
+        return $this->jenisNatural('beban', $from, $to, false, $unitId);
+    }
+
     /** @return array<string, string> */
     public function labaRugi(string $from, string $to, ?int $unitId = null): array
     {

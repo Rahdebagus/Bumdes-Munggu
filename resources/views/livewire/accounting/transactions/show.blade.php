@@ -83,7 +83,7 @@
                         <td class="px-4 py-2">{{ $m->produk?->nama_produk }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ (float) $m->kuantitas_masuk ? rtrim(rtrim($m->kuantitas_masuk, '0'), '.') : '' }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ (float) $m->kuantitas_keluar ? rtrim(rtrim($m->kuantitas_keluar, '0'), '.') : '' }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ 'Rp '.number_format((float) ($m->nilai_masuk ?: $m->nilai_keluar), 0, ',', '.') }}</td>
+                        <td class="px-4 py-2 text-right tabular-nums text-slate-500">{{ 'Rp '.number_format((float) $m->nilai_masuk > 0 ? (float) $m->nilai_masuk : (float) $m->nilai_keluar, 0, ',', '.') }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ rtrim(rtrim($m->saldo_kuantitas, '0'), '.') }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ 'Rp '.number_format((float) $m->saldo_nilai, 0, ',', '.') }}</td>
                     </tr>

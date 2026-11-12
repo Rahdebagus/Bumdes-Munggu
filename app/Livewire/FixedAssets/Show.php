@@ -62,6 +62,6 @@ class Show extends Component
             'postedDep' => $posted,
             'periods' => PeriodeAkuntansi::where('status', 'terbuka')->whereNotNull('opening_locked_at')
                 ->orderBy('tahun')->orderBy('bulan')->get(),
-        ]);
+        ])->title('Detail Aset Tetap');
     }
 }

@@ -133,6 +133,6 @@ class Show extends Component
             'isDraft' => $loan->status === PinjamanStatus::Draft,
             'isAktif' => $loan->status === PinjamanStatus::Aktif,
             'akunKas' => Akun::where('is_cash', true)->where('is_active', true)->orderBy('kode_akun')->get(),
-        ]);
+        ])->title('Detail Pinjaman');
     }
 }

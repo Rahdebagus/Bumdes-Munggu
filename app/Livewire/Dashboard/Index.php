@@ -68,7 +68,7 @@ class Index extends Component
         $kas = $saldo['cash'] ?? '0';
         $bank = $saldo['bank'] ?? '0';
 
-        $beban = (float) $lr['beban_operasional'] + (float) $lr['penyusutan'] + (float) $lr['beban_selisih_persediaan'];
+        $beban = $svc->totalBeban($from, $to);
         $labaKumulatif = $svc->labaBersih($this->cutover(), $to);
         $sisaPokok = $svc->kredit($to)['total_sisa_pokok'];
 
@@ -95,8 +95,8 @@ class Index extends Component
             ],
             [
                 'label' => 'Beban Periode',
-                'value' => $this->rupiah((string) $beban),
-                'hint' => 'Operasional + penyusutan + selisih stok',
+                'value' => $this->rupiah($beban),
+                'hint' => 'Operasional, penyusutan, non-operasional & pajak',
                 'color' => 'rose', 'icon' => 'trending-down',
             ],
             [

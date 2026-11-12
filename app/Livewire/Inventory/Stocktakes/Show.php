@@ -63,6 +63,6 @@ class Show extends Component
         return view('livewire.inventory.stocktakes.show', [
             'title' => $this->opname->nomor_opname,
             'o' => $this->opname->load(['unitUsaha', 'details.produk']),
-        ]);
+        ])->title('Detail Stok Opname');
     }
 }

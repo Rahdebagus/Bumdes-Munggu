@@ -155,6 +155,6 @@ class Show extends Component
             'canReverse' => true,
             'isFormDocument' => DocumentActions::isFormDocument($trx),
             'editUrl' => DocumentActions::editUrl($trx),
-        ]);
+        ])->title('Detail Transaksi');
     }
 }
