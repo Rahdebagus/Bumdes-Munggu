@@ -4,11 +4,13 @@ namespace Database\Seeders;
 
 use App\Domain\FixedAssets\RegisterAsset;
 use App\Domain\MasterData\ImportProducts;
+use App\Domain\MasterData\PartyCode;
 use App\Domain\OpeningBalance\CommitImport;
 use App\Domain\OpeningBalance\LockOpeningBalance;
 use App\Domain\OpeningBalance\PreviewImport;
 use App\Domain\Shared\Decimal;
 use App\Enums\PeriodeStatus;
+use App\Enums\PihakJenis;
 use App\Enums\SaldoRincianJenis;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
@@ -27,7 +29,6 @@ use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -242,7 +243,7 @@ class ProduksiBumdesSeeder extends Seeder
                 'saldo_awal_akun_id' => $piutangId,
                 'jenis' => SaldoRincianJenis::PiutangUsaha->value,
                 'kode_referensi' => $r['no_nota'],
-                'pihak_id' => $this->pihak('pelanggan', 'BDG-'.Str::upper(Str::slug($r['bidang'])), $r['bidang'])->id,
+                'pihak_id' => $this->pelanggan($r['bidang'])->id,
                 'tanggal_asal' => $r['tanggal'],
                 'nominal' => $r['jumlah'],
                 'metadata' => array_filter(['pemesan' => $r['pemesan'], 'uraian' => $r['uraian'], 'keterangan' => $r['keterangan']]),
@@ -285,6 +286,13 @@ class ProduksiBumdesSeeder extends Seeder
     private function pihak(string $jenis, string $kode, string $nama): Pihak
     {
         return Pihak::firstOrCreate(['kode_pihak' => $kode], ['jenis_pihak' => $jenis, 'nama' => $nama, 'status' => 'aktif']);
+    }
+
+    /** Pelanggan per bidang desa: satu pihak per nama bidang, kode otomatis (PLG-001). */
+    private function pelanggan(string $bidang): Pihak
+    {
+        return Pihak::where('jenis_pihak', PihakJenis::Pelanggan->value)->where('nama', $bidang)->first()
+            ?? $this->pihak(PihakJenis::Pelanggan->value, app(PartyCode::class)->next(PihakJenis::Pelanggan), $bidang);
     }
 
     private function summary(): void

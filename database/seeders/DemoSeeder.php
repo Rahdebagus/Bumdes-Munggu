@@ -144,8 +144,8 @@ class DemoSeeder extends Seeder
     private function seedMaster(): void
     {
         $pihak = [
-            ['kode_pihak' => 'CUST-001', 'jenis_pihak' => 'pelanggan', 'nama' => 'Warung Bu Rai', 'status' => 'aktif'],
-            ['kode_pihak' => 'SUPP-001', 'jenis_pihak' => 'pemasok', 'nama' => 'CV Sumber Tani', 'status' => 'aktif'],
+            ['kode_pihak' => 'PLG-001', 'jenis_pihak' => 'pelanggan', 'nama' => 'Warung Bu Rai', 'status' => 'aktif'],
+            ['kode_pihak' => 'PMS-001', 'jenis_pihak' => 'pemasok', 'nama' => 'CV Sumber Tani', 'status' => 'aktif'],
             ['kode_pihak' => 'PMJ-001', 'jenis_pihak' => 'peminjam', 'nama' => 'I Ketut Alit Suardika', 'status' => 'aktif'],
         ];
         foreach ($pihak as $p) {
@@ -217,7 +217,7 @@ class DemoSeeder extends Seeder
     private function seedTrading(): void
     {
         // Pembelian kredit konsumsi (dibayar borongan tgl 20).
-        $beli = $this->trade(TransaksiJenis::Pembelian, '2026-01-03', 'kredit', 'SUPP-001', [
+        $beli = $this->trade(TransaksiJenis::Pembelian, '2026-01-03', 'kredit', 'PMS-001', [
             ['Nasi Bungkus', '100', '15000'], ['Snack Kotak', '50', '6000'],
         ]);
 
@@ -232,7 +232,7 @@ class DemoSeeder extends Seeder
         ]);
 
         // Penjualan kredit upakara (menimbulkan piutang usaha).
-        $jual = $this->trade(TransaksiJenis::Penjualan, '2026-01-15', 'kredit', 'CUST-001', [['Pejati', '10', '75000']]);
+        $jual = $this->trade(TransaksiJenis::Penjualan, '2026-01-15', 'kredit', 'PLG-001', [['Pejati', '10', '75000']]);
 
         // Penjualan tunai perdagangan.
         $this->trade(TransaksiJenis::Penjualan, '2026-01-16', 'tunai', null, [['Topi', '5', '50000'], ['OLI ATAS (CASTROL)', '4', '44500']]);

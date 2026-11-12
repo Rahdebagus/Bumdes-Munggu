@@ -5,7 +5,6 @@ namespace App\Livewire\Forms;
 use App\Enums\PihakJenis;
 use App\Enums\StatusUmum;
 use App\Models\Pihak;
-use Illuminate\Validation\Rule;
 use Livewire\Form;
 
 class PartyForm extends Form
@@ -29,7 +28,7 @@ class PartyForm extends Form
     public function rules(): array
     {
         return [
-            'kode_pihak' => ['required', 'string', 'max:20', Rule::unique('pihak', 'kode_pihak')->ignore($this->pihakId)],
+            // kode_pihak tidak divalidasi/dikirim: selalu dibuat sistem (PartyCode).
             'jenis_pihak' => ['required', PihakJenis::rule()],
             'nama' => ['required', 'string', 'max:100'],
             'nomor_identitas' => ['nullable', 'string', 'max:30'],

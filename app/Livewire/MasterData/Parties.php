@@ -2,7 +2,9 @@
 
 namespace App\Livewire\MasterData;
 
+use App\Domain\MasterData\PartyCode;
 use App\Domain\MasterData\SaveParty;
+use App\Enums\PihakJenis;
 use App\Enums\StatusUmum;
 use App\Livewire\Forms\PartyForm;
 use App\Models\Pihak;
@@ -44,7 +46,17 @@ class Parties extends Component
     {
         $this->authorize('perform-admin-mutation');
         $this->form->reset();
+        $this->updatedFormJenisPihak($this->form->jenis_pihak);
         $this->showModal = true;
+    }
+
+    /** Pratinjau kode (read-only): mengikuti awalan jenis yang dipilih. */
+    public function updatedFormJenisPihak(string $value): void
+    {
+        $jenis = PihakJenis::tryFrom($value);
+        $pihak = $this->form->pihakId ? Pihak::find($this->form->pihakId) : null;
+
+        $this->form->kode_pihak = $jenis ? app(PartyCode::class)->for($pihak, $jenis) : ($pihak->kode_pihak ?? '');
     }
 
     public function edit(int $id): void

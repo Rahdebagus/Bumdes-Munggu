@@ -51,10 +51,15 @@
                 </div>
                 <form wire:submit="save" class="space-y-3 px-5 py-4">
                     <div class="grid grid-cols-2 gap-3">
-                        <x-ui.input label="Kode Pihak" wire:model="form.kode_pihak" :error="$errors->first('form.kode_pihak')" />
+                        <div class="space-y-1">
+                            <label class="block text-sm font-medium text-slate-700">Kode Pihak</label>
+                            <input type="text" readonly tabindex="-1" value="{{ $form->kode_pihak }}"
+                                   class="block w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                            <p class="text-xs text-slate-400">Otomatis dari jenis pihak.</p>
+                        </div>
                         <div class="space-y-1">
                             <label class="block text-sm font-medium text-slate-700">Jenis Pihak</label>
-                            <select wire:model="form.jenis_pihak" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                            <select wire:model.live="form.jenis_pihak" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                                 @foreach (PihakJenis::cases() as $j)
                                     <option value="{{ $j->value }}">{{ ucfirst($j->value) }}</option>
                                 @endforeach
