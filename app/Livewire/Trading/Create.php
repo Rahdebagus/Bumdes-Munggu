@@ -214,7 +214,6 @@ class Create extends Component
             'harga_jual' => (float) $p->harga_jual,
             'stok' => (float) $p->stok_terkini,
             'lacak_stok' => (bool) $p->lacak_stok,
-            'verifikasi' => (bool) $p->harga_jual_perlu_verifikasi,
         ];
     }
 

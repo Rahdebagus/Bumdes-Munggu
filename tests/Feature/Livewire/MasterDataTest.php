@@ -68,7 +68,7 @@ class MasterDataTest extends TestCase
 
         $produk = app(SaveProduct::class)->handle([
             'unit_usaha_id' => $unit->id,
-            'kode_produk' => 'PRD-X',
+            'kode_produk' => 'MANUAL-X',  // diabaikan: kode selalu dari kategori
             'nama_produk' => 'Produk X',
             'satuan' => 'pcs',
             'harga_beli' => 1000,
@@ -82,7 +82,7 @@ class MasterDataTest extends TestCase
         $produk->refresh(); // baca nilai default DB (bukan yang dikirim)
         $this->assertSame('0.0000', $produk->stok_terkini);
         $this->assertSame('0.000000', $produk->harga_pokok_rata);
-        $this->assertDatabaseHas('produk', ['kode_produk' => 'PRD-X', 'stok_terkini' => 0]);
+        $this->assertDatabaseHas('produk', ['kode_produk' => 'PRD-001', 'stok_terkini' => 0]);
     }
 
     public function test_used_account_cannot_change_meaning(): void

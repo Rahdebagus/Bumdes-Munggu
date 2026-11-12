@@ -3,6 +3,7 @@
 namespace App\Livewire\MasterData;
 
 use App\Domain\MasterData\ImportProducts;
+use App\Domain\MasterData\ProductCode;
 use App\Domain\MasterData\SaveProduct;
 use App\Enums\ProdukKategori;
 use App\Enums\StatusUmum;
@@ -33,9 +34,6 @@ class Products extends Component
     #[Url]
     public string $kategori = '';
 
-    #[Url]
-    public bool $perluVerifikasi = false;
-
     public bool $showModal = false;
 
     public bool $showImport = false;
@@ -47,15 +45,21 @@ class Products extends Component
 
     public function updated(string $name): void
     {
-        if (in_array($name, ['q', 'kategori', 'perluVerifikasi'], true)) {
+        if (in_array($name, ['q', 'kategori'], true)) {
             $this->resetPage();
         }
     }
 
     public function updatedFormKategori(string $value): void
     {
+        $kat = ProdukKategori::tryFrom($value);
+        $produk = $this->form->produkId ? Produk::find($this->form->produkId) : null;
+
+        // Pratinjau kode (read-only): mengikuti awalan kategori yang dipilih.
+        $this->form->kode_produk = $kat ? app(ProductCode::class)->for($produk, $kat) : ($produk->kode_produk ?? '');
+
         // Produk baru: default lacak stok mengikuti kategori (jasa = tanpa stok).
-        if (! $this->form->produkId && $kat = ProdukKategori::tryFrom($value)) {
+        if (! $produk && $kat) {
             $this->form->lacak_stok = $kat->lacakStok();
         }
     }
@@ -81,9 +85,6 @@ class Products extends Component
         $this->authorize('perform-admin-mutation');
         $data = $this->form->validate();
         $produk = $this->form->produkId ? Produk::findOrFail($this->form->produkId) : null;
-        if ($produk && (string) (float) $produk->harga_jual !== (string) (float) $data['harga_jual']) {
-            $data['harga_jual_perlu_verifikasi'] = false; // harga dikoreksi admin
-        }
         $saved = $action->handle($data, $produk);
 
         $this->showModal = false;
@@ -106,18 +107,8 @@ class Products extends Component
         }
 
         $produk = Produk::findOrFail($id);
-        $update = [$field => $value];
-        if ($field === 'harga_jual') {
-            $update['harga_jual_perlu_verifikasi'] = false;
-        }
-        $produk->update($update);
+        $produk->update([$field => $value]);
         $this->dispatch('toast', message: "Harga {$produk->nama_produk} diperbarui.");
-    }
-
-    public function markVerified(int $id): void
-    {
-        $this->authorize('perform-admin-mutation');
-        Produk::whereKey($id)->update(['harga_jual_perlu_verifikasi' => false]);
     }
 
     public function toggleStatus(int $id): void
@@ -160,7 +151,6 @@ class Products extends Component
                 ->where('kode_produk', 'like', "%{$this->q}%")
                 ->orWhere('nama_produk', 'like', "%{$this->q}%")))
             ->when($this->kategori, fn ($qq) => $qq->where('kategori', $this->kategori))
-            ->when($this->perluVerifikasi, fn ($qq) => $qq->where('harga_jual_perlu_verifikasi', true))
             ->orderBy('kode_produk')
             ->paginate(25);
 
@@ -168,7 +158,6 @@ class Products extends Component
             'produk' => $produk,
             'units' => UnitUsaha::orderBy('nama_unit')->get(),
             'kategoriList' => ProdukKategori::cases(),
-            'jumlahVerifikasi' => Produk::where('harga_jual_perlu_verifikasi', true)->count(),
         ]);
     }
 }

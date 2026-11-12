@@ -38,9 +38,9 @@ class ProductForm extends Form
     public function rules(): array
     {
         return [
-            // Unit & kode boleh kosong untuk produk baru: diisi otomatis dari kategori.
+            // Unit boleh kosong untuk produk baru: diisi otomatis dari kategori.
+            // kode_produk tidak divalidasi/dikirim: selalu dibuat sistem (ProductCode).
             'unit_usaha_id' => [$this->produkId ? 'required' : 'nullable', 'integer', Rule::exists('unit_usaha', 'id')],
-            'kode_produk' => [$this->produkId ? 'required' : 'nullable', 'string', 'max:20', Rule::unique('produk', 'kode_produk')->ignore($this->produkId)],
             'nama_produk' => ['required', 'string', 'max:100', Rule::unique('produk', 'nama_produk')->ignore($this->produkId)],
             'kategori' => ['required', ProdukKategori::rule()],
             'satuan' => ['required', 'string', 'max:20'],

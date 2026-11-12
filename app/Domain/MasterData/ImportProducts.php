@@ -17,11 +17,10 @@ use RuntimeException;
  *
  * Kolom (header baris pertama, tidak peka huruf besar/kecil):
  *   nama*, satuan, kategori*, stok, harga_beli, harga_jual, sumber_harga_jual,
- *   kode (opsional), stok_minimum (opsional)
+ *   stok_minimum (opsional). Kolom kode diabaikan: kode selalu dari kategori.
  *
  * - Upsert berdasarkan nama (aman diulang): produk ada → harga/kategori/satuan
  *   diperbarui; produk baru → kode otomatis per kategori (KSM-001, ATK-014).
- * - sumber_harga_jual memuat "estimasi" → badge "perlu verifikasi".
  * - Stok TIDAK ditulis langsung. Bila tanggal stok awal diberikan, produk yang
  *   belum punya mutasi mendapat stok awal (mutasi opening + jurnal) lewat
  *   PostOpeningStock. Produk yang sudah bermutasi: selisih stok → stok opname.
@@ -30,7 +29,6 @@ class ImportProducts
 {
     private const ALIASES = [
         'nama_produk' => 'nama', 'produk' => 'nama', 'nama_barang' => 'nama',
-        'kode_produk' => 'kode',
         'stok_akhir' => 'stok', 'stok_awal' => 'stok', 'qty' => 'stok',
         'harga_pokok' => 'harga_beli', 'hpp' => 'harga_beli',
         'sumber' => 'sumber_harga_jual',
@@ -113,7 +111,6 @@ class ImportProducts
                     'harga_beli' => $this->number($row['harga_beli'] ?? '0'),
                     'harga_jual' => $this->number($row['harga_jual'] ?? '0'),
                     'sumber_harga_jual' => $sumber !== '' ? mb_substr($sumber, 0, 100) : null,
-                    'harga_jual_perlu_verifikasi' => str_contains(strtolower($sumber), 'estimasi'),
                 ];
                 $satuan = $this->satuan($row['satuan'] ?? '');
                 if (isset($row['stok_minimum']) && $row['stok_minimum'] !== '') {
@@ -129,8 +126,6 @@ class ImportProducts
                     $report['diperbarui']++;
                 } else {
                     $data['satuan'] = $satuan ?? 'Pcs';
-                    $data['kode_produk'] = ($row['kode'] ?? '') !== '' && ! Produk::where('kode_produk', $row['kode'])->exists()
-                        ? mb_substr($row['kode'], 0, 20) : null;
                     $data['status'] = 'aktif';
                     $produk = $this->saver->handle($data);
                     $report['dibuat']++;

@@ -143,7 +143,6 @@
                                                 <span>· sisa stok <span class="font-medium" x-text="qtyText(prod(row)?.stok)"></span></span>
                                             </template>
                                             <template x-if="prod(row) && !prod(row).lacak_stok"><span>· jasa (tanpa stok)</span></template>
-                                            <template x-if="jenis === 'penjualan' && prod(row)?.verifikasi"><span class="text-amber-600">· harga perlu verifikasi</span></template>
                                         </p>
                                         <p class="text-xs text-red-600" x-text="err(`items.${i}.produk_id`)"></p>
                                         <p x-show="stokKurang(row)" class="mt-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">

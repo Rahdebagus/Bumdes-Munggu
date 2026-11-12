@@ -15,9 +15,11 @@ class SaveProduct
     /**
      * Hanya field master yang boleh diedit. stok_terkini & harga_pokok_rata
      * adalah cache service (dokumen04) dan TIDAK pernah ditulis dari form.
-     * Unit produk tidak dapat diganti setelah ada mutasi stok. Produk baru:
-     * kode kosong → otomatis per kategori (KSM-001); unit kosong → unit
-     * default kategori; lacak_stok tidak diisi → default kategori.
+     * Unit produk tidak dapat diganti setelah ada mutasi stok. Kode produk
+     * selalu dari sistem (input diabaikan) dan mengikuti kategori: KSM-001;
+     * kategori diganti → kode baru dengan awalan kategori baru. Produk baru:
+     * unit kosong → unit default kategori; lacak_stok tidak diisi → default
+     * kategori.
      *
      * @param  array<string, mixed>  $data
      */
@@ -29,11 +31,9 @@ class SaveProduct
             ? ProdukKategori::tryFrom((string) $data['kategori'])
             : null;
         $data['kategori'] = $kategori?->value;
+        $data['kode_produk'] = $this->codes->for($produk, $kategori);
 
         if (! $produk) {
-            if (blank($data['kode_produk'] ?? null)) {
-                $data['kode_produk'] = $this->codes->next($kategori);
-            }
             if (blank($data['unit_usaha_id'] ?? null)) {
                 $data['unit_usaha_id'] = $this->defaultUnitId($kategori);
             }

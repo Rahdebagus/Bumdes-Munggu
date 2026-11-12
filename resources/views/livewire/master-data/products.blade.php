@@ -11,13 +11,6 @@
                     <option value="{{ $k->value }}">{{ $k->label() }}</option>
                 @endforeach
             </select>
-            <label class="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" wire:model.live="perluVerifikasi" class="rounded border-slate-300 text-amber-600">
-                Perlu verifikasi harga
-                @if ($jumlahVerifikasi > 0)
-                    <x-ui.badge color="amber">{{ $jumlahVerifikasi }}</x-ui.badge>
-                @endif
-            </label>
         </div>
         @can('perform-admin-mutation')
             <div class="flex gap-2">
@@ -75,14 +68,6 @@
                         @else
                             <span class="tabular-nums">{{ 'Rp '.number_format((float) $p->{$field}, 0, ',', '.') }}</span>
                         @endcan
-                        @if ($field === 'harga_jual' && $p->harga_jual_perlu_verifikasi)
-                            <span class="mt-0.5 block">
-                                <button type="button" @can('perform-admin-mutation') wire:click="markVerified({{ $p->id }})" @endcan
-                                        title="{{ $p->sumber_harga_jual }} — klik bila harga sudah benar">
-                                    <x-ui.badge color="amber">perlu verifikasi</x-ui.badge>
-                                </button>
-                            </span>
-                        @endif
                     </td>
                 @endforeach
                 <td class="px-4 py-2 text-right tabular-nums text-slate-500">
@@ -142,7 +127,12 @@
                             </select>
                             @error('form.unit_usaha_id') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
-                        <x-ui.input label="Kode Produk" wire:model="form.kode_produk" :placeholder="$form->produkId ? '' : 'Otomatis (mis. KSM-001)'" :error="$errors->first('form.kode_produk')" />
+                        <div class="space-y-1">
+                            <label class="block text-sm font-medium text-slate-700">Kode Produk</label>
+                            <input type="text" readonly tabindex="-1" value="{{ $form->kode_produk }}" placeholder="Pilih kategori dulu"
+                                   class="block w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                            <p class="text-xs text-slate-400">Otomatis dari kategori.</p>
+                        </div>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
                         <x-ui.input label="Harga Beli" type="number" step="any" min="0" wire:model="form.harga_beli" :error="$errors->first('form.harga_beli')" />

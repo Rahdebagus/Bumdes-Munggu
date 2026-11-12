@@ -23,7 +23,6 @@ class Produk extends Model
             'lacak_stok' => 'boolean',
             'harga_beli' => 'decimal:2',
             'harga_jual' => 'decimal:2',
-            'harga_jual_perlu_verifikasi' => 'boolean',
             'stok_terkini' => 'decimal:4',
             'stok_minimum' => 'decimal:4',
             'harga_pokok_rata' => 'decimal:6',

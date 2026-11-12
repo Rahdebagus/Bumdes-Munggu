@@ -32,9 +32,7 @@ class ProductImportTest extends TestCase
         $this->assertStringStartsWith('KSM-', $nasi->kode_produk);
         $this->assertSame('17500.00', $nasi->harga_jual);
         $this->assertSame('Bks', $nasi->satuan);
-        $this->assertFalse($nasi->harga_jual_perlu_verifikasi);
 
-        $this->assertTrue(Produk::where('nama_produk', 'HVS 80 gr A4 SIDU')->value('harga_jual_perlu_verifikasi'));
         $this->assertFalse((bool) Produk::where('nama_produk', 'Fotocopy')->value('lacak_stok'), 'jasa tanpa stok');
         $this->assertSame('ATK-001', Produk::where('nama_produk', 'Hvs 70 gr F4 sidu')->value('kode_produk'));
 
@@ -89,14 +87,12 @@ class ProductImportTest extends TestCase
             ->assertSee('Banten Dewa Yadnya')
             ->assertDontSee('Nasi Bungkus')
             ->set('kategori', '')
-            ->set('perluVerifikasi', true)
-            ->assertSee('perlu verifikasi')
+            ->assertDontSee('perlu verifikasi')
             ->call('updatePrice', $produk->id, 'harga_jual', '60000')
             ->assertDispatched('toast');
 
         $produk->refresh();
         $this->assertSame('60000.00', $produk->harga_jual);
-        $this->assertFalse($produk->harga_jual_perlu_verifikasi, 'koreksi admin menghapus badge');
     }
 
     public function test_tambah_produk_kode_otomatis(): void
